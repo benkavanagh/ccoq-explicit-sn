@@ -267,7 +267,25 @@ module KSem (K : Kripke )  where
              Eq⟨ w ⊩ A ⟩[ s , u ]
   Eq-trans ♭ eq₁ eq₂ = λ c → trans (eq₁ c) (eq₂ c) 
   Eq-trans (S ⇒ T) eq₁ eq₂ = λ c u → Eq-trans T (eq₁ c u) (eq₂ c u)
-  
+
+
+  Eq-cong-app : ∀ A B {w w'} (c : w' ≥ʷ w)  (u u' : w ⊩ A ⇒ B) (v v' : w' ⊩ A) (eq₁ : Eq⟨ w ⊩ A ⇒ B ⟩[ u , u' ]) (eq₂ : Eq⟨ w' ⊩ A ⟩[ v , v' ]) →
+              Eq⟨ w' ⊩ B ⟩[ u c v , u' c v' ]
+  Eq-cong-app ♭ ♭ {w} {w'} c u u' v v' eq1 eq2 = λ c' → eqr c'
+     where 
+     eqr : {w'' : W} (c' : w'' ≥ʷ w') → (u c v c' ≡ u' c v' c')
+     eqr c' rewrite (eq1 c {v} _ c') = {!!}
+  Eq-cong-app ♭ (S ⇒ T) c u u' v v' eq1 eq2 = {!!}
+  Eq-cong-app (S ⇒ T) B c u u' v v' eq1 eq2 = {!!}
+
+
+  Eq-cong-↑ : ∀ A {w w' : W} (c : w' ≥ʷ w) u u' (eq₁ : Eq⟨ w ⊩ A ⟩[ u , u' ])  → Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]〈 u 〉 , ↑[ c , A ]〈 u' 〉 ] 
+  Eq-cong-↑ A c u u' eq = {!!}
+
+  ↑Uni-endo : ∀ A {w w' : W} (c : w' ≥ʷ w) u (uni : Uni⟨ w ⊩ A ⟩ u) → Uni⟨ w' ⊩ A ⟩ (↑[ c , A ]〈 u 〉)
+  ↑Uni-endo A c u uni = {!!}
+
+
   -- 
   Eq↑ : ∀ A {w} u (c : w ≥ʷ w) → Eq⟨ w ⊩ A ⟩[ ↑[ c , A ]〈 u 〉 , u ]
   Eq↑ ♭ u c = λ c' → cong u (uniq≥ _ _)
