@@ -119,10 +119,7 @@ lemma₇ (step g₁ occ₁ f) (step g₂ occ₂ .f ) = cong₂ (λ g occ → ste
 
 infix 10 _⊢_ _⇛_ 
 
--- t ::=   |  ∶λ x ⇨ t  |  t₁ ⋆ t₂  |  t 〈 σ 〉
-
--- ∶v[x⊥occ]   --->  x ↳ occ 
-
+-- M,N ::=  [Γ ⊧ x ↳ loc] |  ∶λ x ⇨ M  |  M ⋆ N  |  M 〈 σ 〉
 mutual 
   data _⊢_ : (Γ : Context)(A : Type) → Set where
     [_⊧_↳_] : ∀ {A} Γ (x : Name) (occ :  [ x ∶ A ]∈ Γ) → Γ ⊢ A    -- var at occ location
@@ -130,17 +127,14 @@ mutual
     _⋆_ : ∀{Γ A B} → (e₁ : Γ ⊢ A ⇒ B) (e₂ : Γ ⊢ A) → Γ ⊢ B          -- apply
     _〈_〉 : ∀{Δ}{Γ}{A} → (Γ ⊢ A) → (Δ ⇛ Γ) → (Δ ⊢ A)   -- explicit subst
 
+-- γ, δ ::= π c | γ ⊙ δ | γ [ x → M ]
   data _⇛_ : (Γ : Context)(Δ : Context) → Set where
     π_ : ∀{Δ}{Γ} → (Δ ≥ Γ) → (Δ ⇛ Γ)      -- project
     _⊙_ :  ∀{Θ}{Γ}{Δ} → (Γ ⇛ Δ) → (Θ ⇛ Γ) → (Θ ⇛ Δ)    -- compose
     _[_↦_] : ∀{Δ}{Γ}{A} → (Δ ⇛ Γ) → (x : Name) → {f : T(x # Γ)} → (Δ ⊢ A) → (Δ ⇛ (Γ ∙[ x ∶ A ]⊣ f))  -- update
 
 
--- lessons
--- 1. I don't need to give explicit types unless they help. the structure of well typed terms. 
---     tells me everything I need to know. example M, N in :β
-
--- _⊢_∋_≐_   -->*   _⊢_∋_≅_    
+-- ( _⊢_∋_≅_ )  =  (_⊢_∋_≐_)* 
 data _⊢_∋_≐_ : ∀ Γ A  (M N : Γ ⊢ A) → Set where
   :β : ∀{x Γ Δ}{f : T(x # Γ)} {γ : Δ ⇛ Γ} {A B}{M : (Γ ∙[ x ∶ A ]⊣ f)  ⊢ B}{N : Δ ⊢ A} 
             → Δ ⊢ B ∋ (((∶λ x ⇨ M) 〈 γ 〉) ⋆ N) ≐ M 〈 γ [ x ↦ N ] 〉 
@@ -151,7 +145,7 @@ data _⊢_∋_≐_ : ∀ Γ A  (M N : Γ ⊢ A) → Set where
   :sapp : ∀ {Γ Δ}{γ : Δ ⇛ Γ} {A B} {M : Γ ⊢ A ⇒ B}{N} → Δ ⊢ B ∋ (M ⋆ N) 〈 γ 〉 ≐  (M 〈 γ 〉 ⋆ N 〈 γ 〉)
   :s⊙ :  ∀{Θ Γ Δ A} {δ : Θ ⇛ Γ}{γ : Γ ⇛ Δ}{M : Δ ⊢ A} →  Θ ⊢ A ∋ M 〈 γ 〉 〈 δ 〉 ≐ M 〈 γ ⊙ δ 〉 
 
--- _⊢_∋_≐ˢ_  -->*  _⊢_∋_≅ˢ_  
+-- ( _⊢_∋_≅ˢ_ ) = (_⊢_∋_≐ˢ_ )* 
 data _⊢_∋_≐ˢ_ : ∀ Δ Γ  (γ δ : Δ ⇛ Γ) → Set where
   ⊙-assoc : ∀{Γ Δ Θ Ω}{γ : Γ ⇛ Ω}{δ : Δ ⇛ Γ}{θ : Θ ⇛ Δ } → Θ ⊢ Ω ∋ ((γ ⊙ δ) ⊙ θ) ≐ˢ (γ ⊙ (δ ⊙ θ))
   ∶ext∶⊙ : ∀{Γ A Δ Θ}(γ : Δ ⇛ Γ) (x : Name) (δ : Θ ⇛ Δ) {f : T(x # Γ)} (M : Δ ⊢ A) 
@@ -163,7 +157,6 @@ data _⊢_∋_≐ˢ_ : ∀ Δ Γ  (γ δ : Δ ⇛ Γ) → Set where
   :πε :  ∀{Γ}(γ : Γ ⇛ ε)(c : Γ ≥ ε) → Γ ⊢ ε ∋ γ ≐ˢ (π c) 
   :ηε :  ∀{Γ Δ A}(x : Name) {f : T(x # Γ)} (occ : [ x ∶ A ]∈ (Γ ∙[ x ∶ A ]⊣ f)) (γ : Δ ⇛ (Γ ∙[ x ∶ A ]⊣ f)) (c : (Γ ∙[ x ∶ A ]⊣ f) ≥ Γ) 
          → Δ ⊢ (Γ ∙[ x ∶ A ]⊣ f) ∋ γ  ≐ˢ ((π c ⊙ γ) [ x ↦ [(Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ occ ] 〈 γ 〉 ])
-
 
 _⊢_∋_≅_ :  ∀ Γ A s t → Set
 Γ ⊢ A ∋ s ≅ t = s ≡[ _⊢_∋_≐_ Γ A ]* t
@@ -221,14 +214,14 @@ module KSem (K : Kripke )  where
    
     -- Eq and Uni are mutually defined, binary and unary predicates over semantic objects u, v ∈ w ⊩ A
    
-    -- two semantic objects at ground type are equal if they give the same element at all future worlds,
+    -- Eq: two semantic objects at ground type are equal if they give the same element at all future worlds,
     --   and at function type if under application they map all uniform semantic objects to equal semantic objects                
     Eq⟨_⊩_⟩[_,_] : ∀ w A (u v : w ⊩ A) → Set
     Eq⟨ w ⊩ ♭ ⟩[ u , v ] = ∀ {w'} (c : w' ≥ʷ w) → u c ≡ v c
     Eq⟨ w ⊩ A ⇒ B ⟩[ u₁ , u₂ ] =
       ∀ {w'} (c : w' ≥ʷ w) {v : w' ⊩ A} (uni : Uni⟨ w' ⊩ A ⟩ v) → Eq⟨ w' ⊩ B ⟩[ u₁ c v , u₂ c v ]
 
-    -- all ground semantic objects are uniform
+    -- Uni: all ground semantic objects are uniform
     -- a semantic object of functional type is uniform 
     --   (1) maps uniform input objects to uniform output objects.
     --   (2) maps equal, uniform objects to equal output objects.
@@ -242,19 +235,9 @@ module KSem (K : Kripke )  where
       (∀ {w₁ w₂} (c₁ : w₁ ≥ʷ w) (c₂ : w₂ ≥ʷ w₁) (c₃ : w₂ ≥ʷ w) {v} (uni : Uni⟨ w₁ ⊩ A ⟩ v) →
         Eq⟨ w₂ ⊩ B ⟩[ ↑[ c₂ , B ]〈 u c₁ v 〉 , u c₃ (↑[ c₂ , A ]〈 v 〉) ])
 
---        Eq⟨ w₂ ⊩ B ⟩[ ↑[ B , c₂ ] u c₁ v , u c₃ (↑[ A , c₂ ] v) ])
 
-  -- Eq an equivalence 
+  -- Eq is an equivalence 
 
-  -- Notes
-  -- _ means you know what goes here. it's in context. I don't have a way to get to it. put it here.
-  -- --> version 1. λ c v → Eq-refl T (u c _)       
-  -- improvement: By the time we get to rhs of lambda we already know second argument to Eq-refl from context
-  --                       so replace (u c _) with _. 
-  -- -->  version 2. λ c v → Eq-refl T _    
-  -- improvement: function has unused pattern matched arguments. if an argument doesn't matter say so!
-  -- replace pattern variables with _ 
-  -- -->  version 3. λ _ _ → Eq-refl T _    
   Eq-refl : ∀ A {w} (u : w ⊩ A) → Eq⟨ w ⊩ A ⟩[ u , u ]
   Eq-refl ♭ u = λ _ → refl
   Eq-refl (A ⇒ B) u = λ c v → Eq-refl B _    
