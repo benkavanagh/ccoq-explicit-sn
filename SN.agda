@@ -18,7 +18,7 @@ infixr 11 _⇒_
           
 data Type : Set where
   ♭ : Type
-  _⇒_ : (S T : Type) → Type
+  _⇒_ : (A B : Type) → Type
 
 Name : Set
 Name = ℕ
@@ -193,6 +193,7 @@ module KSem (K : Kripke )  where
 
   infix 10 _⊩_
 
+  -- semantic objects
   _⊩_ : (w : W)(A : Type) → Set
   w ⊩ ♭ = {w' : W}(ge : w' ≥ʷ w) → G w'
   w ⊩ (A ⇒ B) = {w' : W} (ge : w' ≥ʷ w) (h : w' ⊩ A) → w' ⊩ B 
@@ -237,7 +238,6 @@ module KSem (K : Kripke )  where
 
 
   -- Eq is an equivalence 
-
   Eq-refl : ∀ A {w} (u : w ⊩ A) → Eq⟨ w ⊩ A ⟩[ u , u ]
   Eq-refl ♭ u = λ _ → refl
   Eq-refl (A ⇒ B) u = λ c v → Eq-refl B _    
@@ -318,6 +318,13 @@ module KSem (K : Kripke )  where
   Eqapp↑ {w} {B} u {w'} c {v} =
     subst (λ c' → Eq⟨ w' ⊩ B ⟩[ u c v , u c' v ]) (uniq≥ _ _) (Eq-refl B (u c v))
 -}
+
+-- semantic environments. 
+  data _⊪_ : (w ∈ W) (Γ : Context) → Set where
+    εʷ : ∀ {w} → w ⊪ ε
+    ⟨_∙_⟩ : ∀ {w x} (ρ : w ⊪ Γ) (v : w ⊩ A) → w ⊪ Γ ∙[ x ∶ A ]⊣ f
+  
+
 
 -- next. 1. define the boring lemmas. 
 --          2. define evaluation / reify. 
