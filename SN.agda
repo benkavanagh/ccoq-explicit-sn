@@ -13,6 +13,7 @@ open import Relation.Binary.PropositionalEquality
 import Level as Lvl
 
 open import Closures
+open import NatProperties
 
 infixr 11 _⇒_
           
@@ -112,10 +113,17 @@ lemma₆ here! (there f h₂) = ⊥-elim (refuteFresh f h₂)  -- f says x # Γ.
 lemma₆ (there f h₁) (here!) = ⊥-elim (refuteFresh f h₁)  -- same as above.
 lemma₆ (there f h₁) (there .f h₂) = cong (λ z → there f z) (lemma₆ h₁ h₂)
 
-
 lemma₇ : {Γ Δ : Context} → (gt1 : Γ ≥ Δ) → (gt2 : Γ ≥ Δ) → gt1 ≡ gt2
 lemma₇ stop stop = refl
 lemma₇ (step g₁ occ₁ f) (step g₂ occ₂ .f ) = cong₂ (λ g occ → step g occ f) (lemma₇ g₁ g₂) (lemma₆ occ₁ occ₂)
+
+≥-isPreorder : IsPreorder _≡_ _≥_
+≥-isPreorder =
+  record {
+    isEquivalence = isEquivalence;
+    reflexive = λ { {Γ} {.Γ} refl → lemma₃ };
+    trans = lemma₄
+  }
 
 infix 10 _⊢_ _⇛_ 
 
@@ -133,30 +141,50 @@ mutual
     _⊙_ :  ∀{Θ}{Γ}{Δ} → (Γ ⇛ Δ) → (Θ ⇛ Γ) → (Θ ⇛ Δ)    -- compose
     _[_↦_] : ∀{Δ}{Γ}{A} → (Δ ⇛ Γ) → (x : Name) → {f : T(x # Γ)} → (Δ ⊢ A) → (Δ ⇛ (Γ ∙[ x ∶ A ]⊣ f))  -- update
 
+infix 10 _⊢_∋_≐_ _⊢_∋_≐ˢ_
 
--- ( _⊢_∋_≅_ )  =  (_⊢_∋_≐_)* 
-data _⊢_∋_≐_ : ∀ Γ A  (M N : Γ ⊢ A) → Set where
-  :β : ∀{x Γ Δ}{f : T(x # Γ)} {γ : Δ ⇛ Γ} {A B}{M : (Γ ∙[ x ∶ A ]⊣ f)  ⊢ B}{N : Δ ⊢ A} 
-            → Δ ⊢ B ∋ (((∶λ x ⇨ M) 〈 γ 〉) ⋆ N) ≐ M 〈 γ [ x ↦ N ] 〉 
-  :η : ∀ {Γ A B x} {f : T(x # Γ)} (M : (Γ ⊢ (A ⇒ B)))  { c } → Γ ⊢ A ⇒ B ∋ M  ≐ (∶λ x ⇨ ((M 〈 π c 〉) ⋆ [ (Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ here! ])) 
-  :v₁ : ∀{Γ A x} {f : T(x # Γ)} {M γ} →  (Γ ∙[ x ∶ A ]⊣ f) ⊢ A ∋ ([ (Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ here! ] 〈 γ [ x  ↦ M ] 〉)  ≐  M 
-  :v₂ : ∀{Γ Δ : Context} {x A inΓ inΔ} (c : Δ ≥ Γ) →   Δ ⊢ A ∋ ([ Γ ⊧ x ↳ inΓ ] 〈 π c 〉) ≐  [ Δ ⊧ x ↳ inΔ ] 
-  :sid : ∀ {Γ A c M} → Γ ⊢ A ∋ M 〈 π c 〉 ≐ M 
-  :sapp : ∀ {Γ Δ}{γ : Δ ⇛ Γ} {A B} {M : Γ ⊢ A ⇒ B}{N} → Δ ⊢ B ∋ (M ⋆ N) 〈 γ 〉 ≐  (M 〈 γ 〉 ⋆ N 〈 γ 〉)
-  :s⊙ :  ∀{Θ Γ Δ A} {δ : Θ ⇛ Γ}{γ : Γ ⇛ Δ}{M : Δ ⊢ A} →  Θ ⊢ A ∋ M 〈 γ 〉 〈 δ 〉 ≐ M 〈 γ ⊙ δ 〉 
+mutual
 
--- ( _⊢_∋_≅ˢ_ ) = (_⊢_∋_≐ˢ_ )* 
-data _⊢_∋_≐ˢ_ : ∀ Δ Γ  (γ δ : Δ ⇛ Γ) → Set where
-  ⊙-assoc : ∀{Γ Δ Θ Ω}{γ : Γ ⇛ Ω}{δ : Δ ⇛ Γ}{θ : Θ ⇛ Δ } → Θ ⊢ Ω ∋ ((γ ⊙ δ) ⊙ θ) ≐ˢ (γ ⊙ (δ ⊙ θ))
-  ∶ext∶⊙ : ∀{Γ A Δ Θ}(γ : Δ ⇛ Γ) (x : Name) (δ : Θ ⇛ Δ) {f : T(x # Γ)} (M : Δ ⊢ A) 
-         → Θ ⊢ (Γ ∙[ x ∶ A ]⊣ f) ∋ (γ [ x ↦ M ] ⊙ δ) ≐ˢ ((γ ⊙ δ) [ x ↦ M 〈 δ 〉 ])
-  ∶π∶ext : ∀{Γ Δ A}(x : Name){f : T(x # Γ)}(γ : Δ ⇛ Γ)(M : Δ ⊢ A)(c : (Γ ∙[ x ∶ A ]⊣ f)  ≥ Γ) 
-         → Δ ⊢ Γ ∋ (π c ⊙ (γ [ x ↦ M ])) ≐ˢ  γ
-  ∶⊙∶π  :  ∀{Θ Δ}{Γ}(c₂ : Θ ≥ Δ)(c₁ : Δ ≥ Γ)(c₃ : Θ ≥ Γ) → Θ ⊢ Γ ∋ (π c₁ ⊙ π c₂)  ≐ˢ (π c₃)
-  :πid :  ∀{Γ Δ} (γ : Γ ⇛ Δ)(c : Γ ≥ Γ) → Γ ⊢ Δ ∋ (γ ⊙ π c) ≐ˢ γ
-  :πε :  ∀{Γ}(γ : Γ ⇛ ε)(c : Γ ≥ ε) → Γ ⊢ ε ∋ γ ≐ˢ (π c) 
-  :ηε :  ∀{Γ Δ A}(x : Name) {f : T(x # Γ)} (occ : [ x ∶ A ]∈ (Γ ∙[ x ∶ A ]⊣ f)) (γ : Δ ⇛ (Γ ∙[ x ∶ A ]⊣ f)) (c : (Γ ∙[ x ∶ A ]⊣ f) ≥ Γ) 
-         → Δ ⊢ (Γ ∙[ x ∶ A ]⊣ f) ∋ γ  ≐ˢ ((π c ⊙ γ) [ x ↦ [(Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ occ ] 〈 γ 〉 ])
+-- _⊢_∋_≐_   -->*   _⊢_∋_≅_    
+  data _⊢_∋_≐_ : ∀ Γ A  (M N : Γ ⊢ A) → Set where
+    cλ : ∀ {Γ x f A B M N} (r : Γ ∙[ x ∶ A ]⊣ f ⊢ B ∋ M ≐ N) → Γ ⊢ A ⇒ B ∋ ∶λ x ⇨ M ≐ ∶λ x ⇨ N
+    ca₁ : ∀ {Γ A B M N P} (r : Γ ⊢ A ⇒ B ∋ M ≐ N) → Γ ⊢ B ∋ M ⋆ P ≐ N ⋆ P
+    ca₂ : ∀ {Γ A B M P Q} (r : Γ ⊢ A ∋ P ≐ Q) → Γ ⊢ B ∋ M ⋆ P ≐ M ⋆ Q
+    cs₁ : ∀ {Γ Δ A M N} {ρ : Δ ⇛ Γ} (r : Γ ⊢ A ∋ M ≐ N) → Δ ⊢ A ∋ M 〈 ρ 〉 ≐ N 〈 ρ 〉
+    cs₂ : ∀ {Γ Δ A M} {ρ₁ ρ₂ : Δ ⇛ Γ} (r : Δ ⊢ Γ ∋ ρ₁ ≐ˢ ρ₂) → Δ ⊢ A ∋ M 〈 ρ₁ 〉 ≐ M 〈 ρ₂ 〉
+    :β : ∀{x Γ Δ}{f : T(x # Γ)} {γ : Δ ⇛ Γ} {A B}{M : (Γ ∙[ x ∶ A ]⊣ f)  ⊢ B}{N : Δ ⊢ A} →
+         Δ ⊢ B ∋ (((∶λ x ⇨ M) 〈 γ 〉) ⋆ N) ≐ M 〈 γ [ x ↦ N ] 〉 
+    :η : ∀ {Γ A B x} {f : T(x # Γ)} (M : (Γ ⊢ (A ⇒ B))) { c } →
+         Γ ⊢ A ⇒ B ∋ M  ≐ (∶λ x ⇨ ((M 〈 π c 〉) ⋆ [ (Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ here! ])) 
+    :v₁ : ∀ {Γ Δ A x} {f : T(x # Γ)} {M γ} →
+         Δ ⊢ A ∋ ([ (Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ here! ] 〈 γ [ x  ↦ M ] 〉) ≐  M
+    :v₂ : ∀{Γ Δ : Context} {x A inΓ inΔ} {c : Δ ≥ Γ} →
+          Δ ⊢ A ∋ ([ Γ ⊧ x ↳ inΓ ] 〈 π c 〉) ≐  [ Δ ⊧ x ↳ inΔ ] 
+    :sid : ∀ {Γ A c M} → Γ ⊢ A ∋ M 〈 π c 〉 ≐ M 
+    :sapp : ∀ {Γ Δ}{γ : Δ ⇛ Γ} {A B} {M : Γ ⊢ A ⇒ B}{N} →
+            Δ ⊢ B ∋ (M ⋆ N) 〈 γ 〉 ≐  (M 〈 γ 〉 ⋆ N 〈 γ 〉)
+    :s⊙ :  ∀{Θ Γ Δ A} {δ : Θ ⇛ Γ}{γ : Γ ⇛ Δ}{M : Δ ⊢ A} → Θ ⊢ A ∋ M 〈 γ 〉 〈 δ 〉 ≐ M 〈 γ ⊙ δ 〉 
+
+-- _⊢_∋_≐ˢ_  -->*  _⊢_∋_≅ˢ_  
+  data _⊢_∋_≐ˢ_ : ∀ Δ Γ  (γ δ : Δ ⇛ Γ) → Set where
+    c∘₁ : ∀ {Γ Δ Ψ} {δ₁ δ₂} {γ : Ψ ⇛ Δ} (r : Δ ⊢ Γ ∋ δ₁ ≐ˢ δ₂) → Ψ ⊢ Γ ∋ δ₁ ⊙ γ ≐ˢ δ₂ ⊙ γ
+    c∘₂ : ∀ {Γ Δ Ψ} {δ} {γ₁ γ₂} (r : Ψ ⊢ Γ ∋ γ₁ ≐ˢ γ₂) → Ψ ⊢ Δ ∋ δ ⊙ γ₁ ≐ˢ δ ⊙ γ₂
+    c≔₁ : ∀ {Γ Δ γ₁ γ₂ A x f t} (r : Δ ⊢ Γ ∋ γ₁ ≐ˢ γ₂) →
+           Δ ⊢ Γ ∙[ x ∶ A ]⊣ f ∋  γ₁ [ x ↦ t ] ≐ˢ γ₂ [ x ↦ t ]
+    c≔₂ : ∀ {Γ Δ γ A x f t₁ t₂} (r : Δ ⊢ A ∋ t₁ ≐ t₂) →
+           Δ ⊢ Γ ∙[ x ∶ A ]⊣ f ∋ γ [ x ↦ t₁ ] ≐ˢ γ [ x ↦ t₂ ]
+    ⊙-assoc : ∀ {Γ Δ Θ Ω}{γ : Γ ⇛ Ω}{δ : Δ ⇛ Γ}{θ : Θ ⇛ Δ } →
+              Θ ⊢ Ω ∋ ((γ ⊙ δ) ⊙ θ) ≐ˢ (γ ⊙ (δ ⊙ θ))
+    ∶ext∶⊙ : ∀ {Γ A Δ Θ} {γ : Δ ⇛ Γ} {x : Name} {δ : Θ ⇛ Δ} {f : T(x # Γ)} {M : Δ ⊢ A} →
+            Θ ⊢ (Γ ∙[ x ∶ A ]⊣ f) ∋ (γ [ x ↦ M ] ⊙ δ) ≐ˢ ((γ ⊙ δ) [ x ↦ M 〈 δ 〉 ])
+    ∶π∶ext : ∀ {Γ Δ A}{x : Name}{f : T(x # Γ)} {γ : Δ ⇛ Γ} {M : Δ ⊢ A}
+             {c : (Γ ∙[ x ∶ A ]⊣ f) ≥ Γ } → Δ ⊢ Γ ∋ (π c ⊙ (γ [ x ↦ M ])) ≐ˢ  γ
+    ∶⊙∶π  :  ∀ {Θ Δ Γ} {c₂ : Θ ≥ Δ} {c₁ : Δ ≥ Γ} {c₃ : Θ ≥ Γ} → Θ ⊢ Γ ∋ π c₁ ⊙ π c₂ ≐ˢ π c₃
+    :πid :  ∀ {Γ Δ} {γ : Γ ⇛ Δ} {c : Γ ≥ Γ} → Γ ⊢ Δ ∋ (γ ⊙ π c) ≐ˢ γ
+    :πε :  ∀ {Γ} {γ : Γ ⇛ ε} {c : Γ ≥ ε} → Γ ⊢ ε ∋ γ ≐ˢ (π c) 
+    :ηε :  ∀ {Γ Δ A} (x : Name) {f : T(x # Γ)} (occ : [ x ∶ A ]∈ (Γ ∙[ x ∶ A ]⊣ f))
+           (γ : Δ ⇛ (Γ ∙[ x ∶ A ]⊣ f)) (c : (Γ ∙[ x ∶ A ]⊣ f) ≥ Γ) →
+           Δ ⊢ (Γ ∙[ x ∶ A ]⊣ f) ∋ γ  ≐ˢ ((π c ⊙ γ) [ x ↦ [(Γ ∙[ x ∶ A ]⊣ f) ⊧ x ↳ occ ] 〈 γ 〉 ])
 
 _⊢_∋_≅_ :  ∀ Γ A s t → Set
 Γ ⊢ A ∋ s ≅ t = s ≡[ _⊢_∋_≐_ Γ A ]* t
@@ -171,8 +199,8 @@ record Kripke {a} : Set (Lvl.suc a) where
    constructor kripke
    field 
      W : Set a
-     _≥ʷ_ : Rel W a   -- partial order rel
-     isPO : IsPartialOrder (_≡_{a}{W})  _≥ʷ_
+     _≥ʷ_ : Rel W a   -- preorder rel
+     isPO : IsPreorder (_≡_ {a} {W})  _≥ʷ_
      uniq≥ : {w₁ w₂ : W}(c₁ c₂ : w₁ ≥ʷ w₂) → c₁ ≡ c₂
      G : W → Set      -- Gw w₁ = interpretation of ⊙ at w₁
 
@@ -189,7 +217,7 @@ record Kripke {a} : Set (Lvl.suc a) where
 
 module KSem (K : Kripke )  where 
   open Kripke K
-  module P = IsPartialOrder isPO         -- adds fields of isPO to namespace of module
+  module P = IsPreorder isPO         -- adds fields of isPO to namespace of module
 
   infix 10 _⊩_
 
@@ -252,18 +280,15 @@ module KSem (K : Kripke )  where
   Eq-trans (S ⇒ T) eq₁ eq₂ = λ c u → Eq-trans T (eq₁ c u) (eq₂ c u)
 
 
-  Eq-cong-app : ∀ A B {w w'} (c : w' ≥ʷ w)  (u u' : w ⊩ A ⇒ B) (v v' : w' ⊩ A) (eq₁ : Eq⟨ w ⊩ A ⇒ B ⟩[ u , u' ]) (eq₂ : Eq⟨ w' ⊩ A ⟩[ v , v' ]) →
-              Eq⟨ w' ⊩ B ⟩[ u c v , u' c v' ]
-  Eq-cong-app ♭ ♭ {w} {w'} c u u' v v' eq1 eq2 = λ c' → eqr c'
-     where 
-     eqr : {w'' : W} (c' : w'' ≥ʷ w') → (u c v c' ≡ u' c v' c')
-     eqr c' rewrite (eq1 c {v} _ c') = {!!}
-  Eq-cong-app ♭ (S ⇒ T) c u u' v v' eq1 eq2 = {!!}
-  Eq-cong-app (S ⇒ T) B c u u' v v' eq1 eq2 = {!!}
+  Eq-cong-app : ∀ {A B w w'} (c : w' ≥ʷ w) {u u' : w ⊩ A ⇒ B} {v v' : w' ⊩ A}
+                (eq₁ : Eq⟨ w ⊩ A ⇒ B ⟩[ u , u' ]) (eq₂ : Eq⟨ w' ⊩ A ⟩[ v , v' ]) →
+                Eq⟨ w' ⊩ B ⟩[ u c v , u' c v' ]
+  Eq-cong-app c eq₁ eq₂ = {!!}
 
-
-  Eq-cong-↑ : ∀ A {w w' : W} (c : w' ≥ʷ w) u u' (eq₁ : Eq⟨ w ⊩ A ⟩[ u , u' ])  → Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]〈 u 〉 , ↑[ c , A ]〈 u' 〉 ] 
-  Eq-cong-↑ A c u u' eq = {!!}
+  Eq-cong-↑ : ∀ A {w w'} (c : w' ≥ʷ w) {s t} (eq : Eq⟨ w ⊩ A ⟩[ s , t ]) →
+             Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]〈 s 〉 , ↑[ c , A ]〈 t 〉 ]
+  Eq-cong-↑ ♭ c eq = λ c' → eq _
+  Eq-cong-↑ (A ⇒ B) c eq = λ c' {v} uni → eq _ uni
 
   ↑Uni-endo : ∀ A {w w' : W} (c : w' ≥ʷ w) u (uni : Uni⟨ w ⊩ A ⟩ u) → Uni⟨ w' ⊩ A ⟩ (↑[ c , A ]〈 u 〉)
   ↑Uni-endo A c u uni = {!!}
@@ -330,3 +355,257 @@ module KSem (K : Kripke )  where
 --          2. define evaluation / reify. 
 --          3. more!
 
+
+
+-- semantic environments
+
+  infix 10 _⊩ε_ ↑ε[_,_]〈_〉
+
+  _⊩ε_ : ∀ (w : W) (Γ : Context) → Set
+  w ⊩ε ε = ⊤
+  w ⊩ε Γ ∙[ x ∶ A ]⊣ f = w ⊩ε Γ × w ⊩ A
+
+  lookup : ∀ {w} Γ (ρ : w ⊩ε Γ) {x A} (pr : [ x ∶ A ]∈ Γ) → w ⊩ A
+  lookup ε _ () 
+  lookup ._ (_ , t) (here!) = t
+  lookup ._ (ρ , _) (there f pr) = lookup _ ρ pr
+
+  ↑ε[_,_]〈_〉 : ∀ {w w'} (c : w' ≥ʷ w) Γ (ρ : w ⊩ε Γ) → w' ⊩ε Γ
+  ↑ε[ c , ε ]〈 ρ 〉 = ρ
+  ↑ε[ c , Γ ∙[ x ∶ A ]⊣ f ]〈 ρ , t 〉 = ↑ε[ c , Γ ]〈 ρ 〉 , ↑[ c , A ]〈 t 〉
+
+  πε : ∀ {w Γ Δ} (ge : Γ ≥ Δ) (ρ : w ⊩ε Γ) → w ⊩ε Δ
+  πε stop ρ = tt
+  πε (step ge occ f) ρ = πε ge ρ , lookup _ ρ occ
+
+  Eq⟨_⊩ε_⟩[_,_] : ∀ w Γ (ρ₁ ρ₂ : w ⊩ε Γ) → Set
+  Eq⟨ w ⊩ε ε ⟩[ ρ₁ , ρ₂ ] = ⊤
+  Eq⟨ w ⊩ε Γ ∙[ x ∶ A ]⊣ f ⟩[ (ρ₁ , r₁) , (ρ₂ , r₂) ] = Eq⟨ w ⊩ε Γ ⟩[ ρ₁ , ρ₂ ] × Eq⟨ w ⊩ A ⟩[ r₁ , r₂ ]
+
+  Uni⟨_⊩ε_⟩_ : ∀ w Γ (ρ : w ⊩ε Γ) → Set
+  Uni⟨ w ⊩ε ε ⟩ ρ = ⊤
+  Uni⟨ w ⊩ε Γ ∙[ x ∶ A ]⊣ f ⟩ (ρ , r) = Uni⟨ w ⊩ε Γ ⟩ ρ × Uni⟨ w ⊩ A ⟩ r
+
+  Eqε-refl : ∀ {w} Γ ρ → Eq⟨ w ⊩ε Γ ⟩[ ρ , ρ ]
+  Eqε-refl ε ρ = tt
+  Eqε-refl (Γ ∙[ x ∶ A ]⊣ f) (ρ , r) = Eqε-refl Γ ρ , Eq-refl A r
+
+  Eqε-sym : ∀ Γ {w ρ₁ ρ₂} (eq : Eq⟨ w ⊩ε Γ ⟩[ ρ₁ , ρ₂ ]) → Eq⟨ w ⊩ε Γ ⟩[ ρ₂ , ρ₁ ]
+  Eqε-sym ε eq = tt
+  Eqε-sym (Γ ∙[ x ∶ A ]⊣ f) (eqρ , eqr) = Eqε-sym Γ eqρ , Eq-sym A eqr
+
+  Eqε-trans : ∀ Γ {w ρ₁ ρ₂ ρ₃} (eq₁ : Eq⟨ w ⊩ε Γ ⟩[ ρ₁ , ρ₂ ]) (eq₂ : Eq⟨ w ⊩ε Γ ⟩[ ρ₂ , ρ₃ ]) →
+             Eq⟨ w ⊩ε Γ ⟩[ ρ₁ , ρ₃ ]
+  Eqε-trans ε eq₁ eq₂ = tt
+  Eqε-trans (Γ ∙[ x ∶ A ]⊣ f) (eqρ₁ , eqr₁) (eqρ₂ , eqr₂) = Eqε-trans Γ eqρ₁ eqρ₂ , Eq-trans A eqr₁ eqr₂
+
+  lookup-uniq : ∀ {Γ w} ρ {A x} (pr₁ pr₂ : [ x ∶ A ]∈ Γ) →
+                Eq⟨ w ⊩ A ⟩[ lookup Γ ρ pr₁ , lookup Γ ρ pr₂ ]
+  lookup-uniq {Γ} ρ {A} pr₁ pr₂ rewrite lemma₆ pr₁ pr₂ = Eq-refl A (lookup Γ ρ pr₂)
+
+  Eq-lookup : ∀ {Γ Δ w ρ} (ge : Γ ≥ Δ) {x A} (pr : [ x ∶ A ]∈ Γ) (pr' : [ x ∶ A ]∈ Δ) →
+              Eq⟨ w ⊩ A ⟩[ lookup Γ ρ pr , lookup Δ (πε ge ρ) pr' ]
+  Eq-lookup stop pr ()
+  Eq-lookup {Γ} {._} {w} {ρ} (step ge occ f) {x} {A} pr here! = lookup-uniq ρ pr occ
+  Eq-lookup (step ge occ f) pr (there .f pr') = Eq-lookup ge pr pr' 
+
+  Eq↑-lookup : ∀ {Γ w w'} (c : w' ≥ʷ w) ρ {x A} (pr : [ x ∶ A ]∈ Γ) →
+               Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]〈 lookup Γ ρ pr 〉 , lookup Γ ↑ε[ c , Γ ]〈 ρ 〉 pr ]
+  Eq↑-lookup {ε} c ρ ()
+  Eq↑-lookup {Γ ∙[ x ∶ A ]⊣ f} c (_ , r) here! = Eq-refl A ↑[ c , A ]〈 r 〉
+  Eq↑-lookup c (ρ , _) (there f pr) = Eq↑-lookup c ρ pr
+
+  Eqπ-step : ∀ {w Γ ρ Δ} (c₁ : Γ ≥ Δ) {x A v f} (c₂ : Γ ∙[ x ∶ A ]⊣ f ≥ Δ) →
+             Eq⟨ w ⊩ε Δ ⟩[ πε c₂ (ρ , v) , πε c₁ ρ ]
+  Eqπ-step stop c₂ = tt
+  Eqπ-step (step c₁ occ f) (step c₂ (here! {_} {g}) .f) = ⊥-elim (refuteFresh g occ)
+  Eqπ-step (step c₁ occ f) (step c₂ (there f₁ occ₁) .f) =
+    Eqπ-step c₁ c₂ , Eq-lookup (step c₁ occ f) occ₁ here!
+
+  Eqπ : ∀ Γ {w ρ} (c : Γ ≥ Γ) → Eq⟨ w ⊩ε Γ ⟩[ πε c ρ , ρ ]
+  Eqπ ε stop = tt
+  Eqπ (Γ ∙[ x ∶ A ]⊣ f) (step c here! .f) =
+    Eqε-trans Γ (Eqπ-step lemma₃ c) (Eqπ Γ _) , Eq-refl A _
+  Eqπ (Γ ∙[ x ∶ A ]⊣ f) (step c (there .f occ) .f) = ⊥-elim (refuteFresh f occ)
+
+  Eqε↑ : ∀ Γ {w ρ} (c : w ≥ʷ w) → Eq⟨ w ⊩ε Γ ⟩[ ↑ε[ c , Γ ]〈 ρ 〉 , ρ ]
+  Eqε↑ ε c = tt
+  Eqε↑ (Γ ∙[ x ∶ A ]⊣ f) c = Eqε↑ Γ c , Eq↑ A _ c
+
+  Eqππ : ∀ Γ Δ Ε {w} {ρ : w ⊩ε Ε} (ge₁ : Δ ≥ Γ) (ge₂ : Ε ≥ Δ) (ge₃ : Ε ≥ Γ) →
+         Eq⟨ w ⊩ε Γ ⟩[ πε ge₁ (πε ge₂ ρ) , πε ge₃ ρ ]
+  Eqππ .ε Δ Ε stop ge₂ ge₃ = tt
+  Eqππ (Γ ∙[ x ∶ A ]⊣ f) Δ Ε (step ge₁ occ .f) ge₂ ge₃
+    rewrite lemma₇ ge₃ (lemma₄ ge₂ (step ge₁ occ f)) =
+    Eqππ Γ Δ Ε ge₁ ge₂ _ , Eq-sym A (Eq-lookup ge₂ (lemma₂ ge₂ occ) occ)
+
+  Eqε↑↑ : ∀ Γ {w w₁ w₂} {ρ : w ⊩ε Γ} (c₂ : w₂ ≥ʷ w₁) (c₁ : w₁ ≥ʷ w) (c₃ : w₂ ≥ʷ w) →
+          Eq⟨ w₂ ⊩ε Γ ⟩[ ↑ε[ c₂ , Γ ]〈 ↑ε[ c₁ , Γ ]〈 ρ 〉 〉 , ↑ε[ c₃ , Γ ]〈 ρ 〉 ]
+  Eqε↑↑ ε c₁ c₂ c₃ = tt
+  Eqε↑↑ (Γ ∙[ x ∶ A ]⊣ f) c₁ c₂ c₃ = (Eqε↑↑ Γ c₁ c₂ c₃) , (Eq↑↑ A _ c₂ c₁ c₃)
+
+  Eqε↑π : ∀ {Γ} Δ {w} w' {ρ : w ⊩ε Γ} (cw : w' ≥ʷ w) (cε : Γ ≥ Δ) →
+          Eq⟨ w' ⊩ε Δ ⟩[ ↑ε[ cw , Δ ]〈 πε cε ρ 〉 , πε cε ↑ε[ cw , Γ ]〈 ρ 〉 ]
+  Eqε↑π .ε w' cw stop = tt
+  Eqε↑π (Δ ∙[ x ∶ A ]⊣ f) w' {ρ} cw (step cε occ .f) = Eqε↑π Δ w' cw cε , Eq↑-lookup cw ρ occ
+
+-- semantics of the λ-calculus
+
+  mutual
+
+    ⟦_⟧t : ∀ {Γ w A} (t : Γ ⊢ A) (ρ : w ⊩ε Γ) → w ⊩ A
+    ⟦ [ Γ ⊧ x ↳ p ] ⟧t ρ = lookup Γ ρ p
+    ⟦_⟧t {Γ} (∶λ x ⇨ t) ρ = λ c a → ⟦ t ⟧t (↑ε[ c , Γ ]〈 ρ 〉 , a)
+    ⟦ t ⋆ u ⟧t ρ = ⟦ t ⟧t ρ P.refl (⟦ u ⟧t ρ)
+    ⟦ t 〈 s 〉 ⟧t ρ = ⟦ t ⟧t (⟦ s ⟧s ρ)
+
+    ⟦_⟧s : ∀ {w Γ Δ} (s : Δ ⇛ Γ) (ρ : w ⊩ε Δ) → w ⊩ε Γ
+    ⟦ π ge ⟧s ρ = πε ge ρ
+    ⟦ s₂ ⊙ s₁ ⟧s ρ = ⟦ s₂ ⟧s (⟦ s₁ ⟧s ρ)
+    ⟦ s [ x ↦ t ] ⟧s ρ = ⟦ s ⟧s ρ , ⟦ t ⟧t ρ
+
+
+calculus : Kripke
+calculus = kripke Context _≥_ ≥-isPreorder lemma₇ (λ Γ → Γ ⊢ ♭)
+
+max : Context → ℕ
+max ε = 0
+max (Γ ∙[ x ∶ A ]⊣ f) = max Γ ⊔ x
+
+fresh : Context → ℕ
+fresh = suc ∘ max
+
+freshness : ∀ Γ {x} (pr : x > max Γ) → T (x # Γ)
+freshness ε pr = tt
+freshness (Γ ∙[ x ∶ A ]⊣ f) {y} pr with y ≟ x
+freshness (Γ ∙[ x ∶ A ]⊣ f) {.x} pr | yes refl = <-irrefl (<≤-compat (s≤s (m≤n⊔m _ (max Γ))) pr)
+... | no ¬p = freshness Γ (≤-trans (s≤s (m≤m⊔n _ _)) pr)
+
+isfresh : ∀ Γ → T (fresh Γ # Γ)
+isfresh Γ = freshness Γ (≤-refl _)
+
+
+module KS = KSem calculus
+open KS
+
+mutual
+
+  reify : ∀ Γ A (t : Γ ⊩ A) → Γ ⊢ A
+  reify Γ ♭ t = t lemma₃
+  reify Γ (A ⇒ B) t = ∶λ_⇨_ {Γ} {A} {B} (fresh Γ) {isfresh Γ} (reify _ B (t lemma₅ (val _ A (λ pr → [ _ ⊧ fresh Γ ↳ lemma₂ pr here! ]))))
+
+  val : ∀ Γ A (t : ∀ {Δ} (pr : Δ ≥ Γ) → Δ ⊢ A) → Γ ⊩ A
+  val Γ ♭ t = t
+  val Γ (A ⇒ B) t = λ {Δ} pr a → val Δ B (λ {Ε} inc → t (lemma₄ inc pr) ⋆ (reify Ε A ↑[ inc , A ]〈 a 〉))
+
+valEq : ∀ {Γ} A {f₁ f₂ : ∀ {Δ} pr → Δ ⊢ A} (h : ∀ {Δ} (pr : Δ ≥ Γ) → f₁ pr ≡ f₂ pr) →
+        Eq⟨ Γ ⊩ A ⟩[ val Γ A f₁ , val Γ A f₂ ]
+valEq ♭ h = h
+valEq (A ⇒ B) h =
+  λ {Δ} pr {a} uni → valEq B (λ {Ε} inc → cong (λ t → t ⋆ reify Ε A ↑[ inc , A ]〈 a 〉)
+    (h (lemma₁ (λ {x} {A₁} ext → lemma₂ inc (lemma₂ pr ext)))))
+
+val↑ : ∀ {Γ} A {Δ} (pr : Δ ≥ Γ) {f : ∀ {Δ} pr → Δ ⊢ A} →
+       Eq⟨ Δ ⊩ A ⟩[ ↑[ pr , A ]〈 val Γ A f 〉 , val Δ A (λ inc → f (lemma₄ inc pr)) ]
+val↑ ♭ pr = λ _ → refl
+val↑ (A ⇒ B) pr {f} =
+  λ {Δ} inc {a} uni → valEq B (λ {Ε} inc → cong (λ t → f t ⋆ reify Ε A ↑[ inc , A ]〈 a 〉)
+  (lemma₇ _ _))
+
+mutual
+
+  theorem₁ : ∀ {Γ} A {u v} (eq : Eq⟨ Γ ⊩ A ⟩[ u , v ]) → reify Γ A u ≡ reify Γ A v
+  theorem₁ ♭ eq = eq _
+  theorem₁ {Γ} (A ⇒ B) eq = cong (∶λ_⇨_ (fresh Γ)) (theorem₁ B (eq lemma₅ (valUni A)))
+
+  valUni : ∀ {Γ} A {f : ∀ {Δ} pr → Δ ⊢ A} → Uni⟨ Γ ⊩ A ⟩ val Γ A f
+  valUni ♭ = tt
+  valUni (A ⇒ B) {f} =
+    (λ {Δ} inc {a} uni → valUni B) ,
+    (λ {Δ} inc {v₁} {v₂} uni₁ uni₂ eq →
+      valEq B (λ {Ε} pr → cong (_⋆_ (f (lemma₄ pr inc))) (theorem₁ A (Eq-cong-↑ A pr eq)))) ,
+    (λ {Δ} {Ε} c₁ c₂ c₃ {v} uni → Eq-trans B (val↑ B c₂)
+      (valEq B (λ {Φ} pr → cong₂ (λ inc t → f inc ⋆ t) (lemma₇ _ _)
+               (theorem₁ A (Eq-sym A (Eq↑↑ A v _ _ _))))))
+
+infix 10 Γ⊩_
+
+Γ⊩_ : (Γ : Context) → Γ ⊩ε Γ
+Γ⊩ ε = tt
+Γ⊩ Γ ∙[ x ∶ A ]⊣ f =
+  ↑ε[ lemma₅ , Γ ]〈 Γ⊩ Γ 〉 ,
+  val _ A (λ {Δ} inc → [ Δ ⊧ x ↳ lemma₂ inc here! ])
+
+nf : ∀ {Γ A} (t : Γ ⊢ A) → Γ ⊢ A
+nf {Γ} {A} t = reify Γ A (⟦ t ⟧t (Γ⊩ Γ))
+
+corollary₁ : ∀ {Γ A} {t u : Γ ⊢ A} (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ t ⟧t (Γ⊩ Γ) , ⟦ u ⟧t (Γ⊩ Γ) ]) → nf t ≡ nf u
+corollary₁ eq = theorem₁ _ eq
+
+infix 10 [_]_↯_ [_]ε_↯_
+
+[_]_↯_ : ∀ {Γ} A (t : Γ ⊢ A) (u : Γ ⊩ A) → Set
+[ ♭ ] t ↯ T = ∀ {Δ} (pr : Δ ≥ _) → Δ ⊢ ♭ ∋ t 〈 π pr 〉 ≅ T pr
+[ A ⇒ B ] t ↯ T =
+  ∀ {Δ} (pr : Δ ≥ _) {u U} (cv : [ A ] u ↯ U) → [ B ] t 〈 π pr 〉 ⋆ u ↯ T pr U
+
+data [_]ε_↯_ {Δ} : ∀ Γ (ρ : Δ ⇛ Γ) (Ρ : Δ ⊩ε Γ) → Set where
+  ε : ∀ {γ} → [ ε ]ε γ ↯ tt
+  ∙ : ∀ {Γ x A f} {ρ : Δ ⇛ Γ ∙[ x ∶ A ]⊣ f} {Ρ} (ρΡ : [ Γ ]ε π lemma₅ ⊙ ρ ↯ Ρ)
+      {T} (xu : [ A ] [ _ ⊧ x ↳ here! ] 〈 ρ 〉 ↯ T) →
+      [ Γ ∙[ x ∶ A ]⊣ f ]ε ρ ↯ (Ρ , T)
+
+↯≡-cast : ∀ {Γ} A {t u T} (eq : Γ ⊢ A ∋ t ≅ u) (cv : [ A ] t ↯ T) → [ A ] u ↯ T
+↯≡-cast ♭ eq cv = λ {Δ} pr → ≡*-trans (≡*-cong cs₁ (≡*-sym eq)) (cv pr)
+↯≡-cast (A ⇒ B) eq cv = λ {Δ} pr {u} {U} cvU → ↯≡-cast B (≡*-cong (ca₁ ∘ cs₁) eq) (cv pr cvU)
+
+↯≡ε-cast : ∀ {Δ} Γ {ρ₁ ρ₂ Ρ} (eq : Δ ⊢ Γ ∋ ρ₁ ≅ˢ ρ₂) (cv : [ Γ ]ε ρ₁ ↯ Ρ) → [ Γ ]ε ρ₂ ↯ Ρ
+↯≡ε-cast .ε eq ε = ε
+↯≡ε-cast (Γ ∙[ x ∶ A ]⊣ f) eq (∙ cv xu) =
+   ∙ (↯≡ε-cast Γ (≡*-cong c∘₂ eq) cv) (↯≡-cast A (≡*-cong cs₂ eq) xu)
+
+↯↑ : ∀ {Γ Δ} A {t T} (pr : Δ ≥ Γ) (cv : [ A ] t ↯ T) → [ A ] t 〈 π pr 〉 ↯ ↑[ pr , A ]〈 T 〉
+↯↑ ♭ pr cv = λ {Ε} inc →
+ ≡*-trans (lstep :s⊙ (lstep (cs₂ ∶⊙∶π) refl)) (cv _)
+↯↑ (A ⇒ B) pr cv = λ {Δ} inc {u} {U} cvU →
+  ↯≡-cast B (≡*-sym (lstep (ca₁ :s⊙) (lstep (ca₁ (cs₂ ∶⊙∶π)) refl))) (cv _ cvU)
+
+↯-lookup : ∀ {Δ} Γ {x A} pr {ρ : Δ ⇛ Γ} {Ρ} (cv : [ Γ ]ε ρ ↯ Ρ) →
+            [ A ] [ Γ ⊧ x ↳ pr ] 〈 ρ 〉 ↯ lookup Γ Ρ pr
+↯-lookup .ε () ε
+↯-lookup (Γ ∙[ x ∶ A ]⊣ f) here! (∙ cv xu) = xu
+↯-lookup (Γ ∙[ x ∶ A ]⊣ f) {y} {B} (there .f pr) (∙ cv xu) =
+  ↯≡-cast B (rstep :s⊙ (lstep (cs₁ :v₂) refl)) (↯-lookup Γ pr cv)
+
+↯π : ∀ {Δ} Γ {Ε} (pr : Ε ≥ Δ) {ρ : Δ ⇛ Γ} {Ρ} (cv : [ Γ ]ε ρ ↯ Ρ) →
+      [ Γ ]ε ρ ⊙ π pr ↯ ↑ε[ pr , Γ ]〈 Ρ 〉
+↯π .ε pr ε = ε
+↯π (Γ ∙[ x ∶ A ]⊣ f) pr (∙ cv xu) =
+  ∙ (↯≡ε-cast Γ (lstep ⊙-assoc refl) (↯π Γ pr cv)) (↯≡-cast A (lstep :s⊙ refl) (↯↑ A pr xu))
+
+↯πε : ∀ {Δ} Γ {Ε} (pr : Γ ≥ Ε) {ρ : Δ ⇛ Γ} {Ρ} (cv : [ Γ ]ε ρ ↯ Ρ) → [ Ε ]ε π pr ⊙ ρ ↯ πε pr Ρ
+↯πε Γ stop cv = ε
+↯πε .ε (step pr () f) ε
+↯πε (Γ ∙[ x ∶ A ]⊣ f) (step {Δ} {y} {B} pr occ f') cv =
+  ∙ (↯≡ε-cast Δ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶⊙∶π) refl)))
+    (↯πε (Γ ∙[ x ∶ A ]⊣ f) pr cv))
+    (↯≡-cast B (≡*-sym (rstep :s⊙ (lstep (cs₁ :v₂) refl))) (↯-lookup _ occ cv))
+
+mutual
+
+  lemma₈ : ∀ {A Γ Δ} t {ρ : Δ ⇛ Γ} {Ρ} (cv : [ Γ ]ε ρ ↯ Ρ) → [ A ] t 〈 ρ 〉 ↯ ⟦ t ⟧t Ρ
+  lemma₈ [ Γ ⊧ x ↳ p ] cv = ↯-lookup Γ p cv
+  lemma₈ {A ⇒ B} (∶λ x ⇨ t) cv =
+   λ {Ε} pr {u} {U} cvU → ↯≡-cast B (≡*-sym (lstep (ca₁ :s⊙) (lstep :β refl))) (lemma₈ t
+   (∙ (↯≡ε-cast _ (≡*-sym (lstep ∶π∶ext refl)) (↯π _ pr cv)) (↯≡-cast A (rstep :v₁ refl) cvU)))
+
+  lemma₈ {A} (t ⋆ u) cv =
+    ↯≡-cast A (lstep (ca₁ :sid) (rstep :sapp refl)) (lemma₈ t cv lemma₃ (lemma₈ u cv))
+  lemma₈ {A} (t 〈 ρ 〉) cv = ↯≡-cast A (rstep :s⊙ refl) (lemma₈ t (↯subst _ ρ cv))
+
+  ↯subst : ∀ Γ {Δ} γ {Ε} {ρ : Ε ⇛ Δ} {Ρ} (cv : [ Δ ]ε ρ ↯ Ρ) → [ Γ ]ε γ ⊙ ρ ↯ ⟦ γ ⟧s Ρ
+  ↯subst Γ (π ge) cv = ↯πε _ ge cv
+  ↯subst Γ (γ ⊙ δ) cv = ↯≡ε-cast Γ (rstep ⊙-assoc refl) (↯subst Γ γ (↯subst _ δ cv))
+  ↯subst (Γ ∙[ x ∶ A ]⊣ f) (γ [ .x ↦ t ]) cv =
+   ∙ (↯≡ε-cast Γ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶π∶ext) refl))) (↯subst Γ γ cv))
+      (↯≡-cast A (≡*-sym (lstep (cs₂ ∶ext∶⊙) (lstep :v₁ refl))) (lemma₈ t cv))
