@@ -52,3 +52,8 @@ s ≡[ P ]* t = refsymtranclos P s t
 ≡*-idempotent refl = refl
 ≡*-idempotent (lstep p ps) = ≡*-trans p (≡*-idempotent ps)
 ≡*-idempotent (rstep p ps) = ≡*-trans (≡*-sym p) (≡*-idempotent ps)
+
+
+-- data symtranclos {A : Set} (P : A → A → Set) : A → A → Set where
+--   lstep : {s t u : A} (p : P s t) (p₁ : refsymtranclos P t u) → refsymtranclos P s u
+--   rstep : {s t u : A} (p : P t s) (p₁ : refsymtranclos P t u) → refsymtranclos P s u
