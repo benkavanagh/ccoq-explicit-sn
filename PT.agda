@@ -66,11 +66,11 @@ isfresh Γ = freshness Γ (≤-refl _)
 
 data [_∶_]∈_ (x : Name) (A : Type) : Context  → Set  where
   here! : ∀ {Γ} {f : T(x # Γ)} → [ x ∶ A ]∈ (Γ ∙[ x ∶ A ]⊣ f)
-  there : ∀ {y B Γ} (f : T(y # Γ)) (p : [ x ∶ A ]∈ Γ) → [ x ∶ A ]∈ Γ ∙[ y ∶ B ]⊣ f
+  there : ∀ {y B Γ} (f : T(y # Γ)) (occ : [ x ∶ A ]∈ Γ) → [ x ∶ A ]∈ Γ ∙[ y ∶ B ]⊣ f
 
 data _≥_ (Γ : Context) : Context → Set  where
   stop :  Γ ≥ ε
-  step : ∀ {Δ x A} (pr : Γ ≥ Δ) (occ : [ x ∶ A ]∈ Γ) (f : T(x # Δ)) → Γ ≥ Δ ∙[ x ∶ A ]⊣ f  
+  step : ∀ {Δ x A} (c : Γ ≥ Δ) (occ : [ x ∶ A ]∈ Γ) (f : T(x # Δ)) → Γ ≥ Δ ∙[ x ∶ A ]⊣ f  
 
 
 
@@ -83,7 +83,7 @@ lemma₁ {Δ ∙[ x ∶ A ]⊣ f} h = step (lemma₁ {Δ} (\oc →  h (there f o
                                                     (h here!)
                                                     f 
 
-lemma₂ : ∀ {Γ Δ} (c : Γ ≥ Δ) → ∀{x A} (pr : [ x ∶ A ]∈ Δ) → ([ x ∶ A ]∈ Γ)
+lemma₂ : ∀ {Γ Δ} (c : Γ ≥ Δ) → ∀{x A} (occ : [ x ∶ A ]∈ Δ) → ([ x ∶ A ]∈ Γ)
 lemma₂ stop ()
 lemma₂ (step c occ f) here! = occ
 lemma₂ (step c occ₁ f) (there .f occ₂) = lemma₂ c occ₂
