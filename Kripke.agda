@@ -226,10 +226,10 @@ module KSem (K : Kripke )  where
   lookup-uniq {Γ} ρ {A} pr₁ pr₂ rewrite lemma₆ pr₁ pr₂ = Eq-refl A (lookup Γ ρ pr₂)
 
   -- lookup is invariant on projection operation
-  Eq-lookup : ∀ {Γ Δ w ρ} (c : Γ ≥ Δ) {x A} (occ₁ : [ x ∶ A ]∈ Γ) (occ₂ : [ x ∶ A ]∈ Δ) →
-              Eq⟨ w ⊩ A ⟩[ lookup Γ ρ occ₁ , lookup Δ (πᵉ c ρ) occ₂ ]
+  Eq-lookup : ∀ {Δ Γ w ρ} (c : Δ ≥ Γ) {x A} (occ₁ : [ x ∶ A ]∈ Δ) (occ₂ : [ x ∶ A ]∈ Γ) →
+              Eq⟨ w ⊩ A ⟩[ lookup Δ ρ occ₁ , lookup Γ (πᵉ c ρ) occ₂ ]
   Eq-lookup stop occ ()
-  Eq-lookup {Γ} {Δ ∙[ x ∶ A ]⊣ f} {w} {ρ} (step c occ₁ .f) {.x} {.A} occ₂ here! = lookup-uniq ρ occ₂ occ₁
+  Eq-lookup {Δ} {Γ ∙[ x ∶ A ]⊣ f} {w} {ρ} (step c occ₁ .f) {.x} {.A} occ₂ here! = lookup-uniq ρ occ₂ occ₁
   Eq-lookup (step c occ f) pr (there .f pr') = Eq-lookup c pr pr' 
 
 
@@ -425,11 +425,15 @@ module KSem (K : Kripke )  where
     -- may require uniformity of ρ. Not a big problem as is guaranteed the only place it is used (in Uni-⟦⟧t)
     Eq-⟦⟧t↑-coherence : ∀ {Γ A}(M : Γ ⊢ A){w w'}(ρ : w ⊩ᵉ Γ)(uρ : Uni⟨ w ⊩ᵉ Γ ⟩ ρ) (c : w' ≥ʷ w)
                                     → Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]⟨ ⟦ M ⟧t ρ ⟩ , ⟦ M ⟧t ↑ᵉ[ c , Γ ]⟨ ρ ⟩ ]
+
+    -- [ .Γ ∋ x ↳ occ ]
     Eq-⟦⟧t↑-coherence {Γ} [ .Γ ∋ x ↳ occ ] ρ _ c = Eq↑-lookup c ρ occ
+    -- (∶λ x # f ⇨ M)
     Eq-⟦⟧t↑-coherence {Γ} {A ⇒ B} (∶λ x # f ⇨ M) ρ uρ c = 
        λ {w''} c' {v} uv → Eq-⟦⟧t-compat M (Uniᵉ↑ Γ (P.trans c' c) uρ , uv) 
                                         (Uniᵉ↑ Γ c' (Uniᵉ↑ Γ c uρ) , uv) 
                                         ( Eqᵉ-sym Γ (Eqᵉ↑↑ Γ c' c (P.trans c' c)) , Eq-refl A _ ) -- Eqᵉ↑↑
+    -- (M ⋆ N)
     -- use eq-coherence-app↑, Eq↑↑ w/ refl∘c = c∘refl, possibly Eq↑-id (to add refl)
     -- but also requires coherence due to uniformity of (⟦M⟧t ρ), 
     -- so add uni ρ to argument. 
@@ -444,7 +448,7 @@ module KSem (K : Kripke )  where
                                 ((Uni↑ A c _ (Uni-⟦⟧t N ρ uρ))) 
                                 ((Uni-⟦⟧t N _ (Uniᵉ↑ Γ c uρ)) ) 
                                 (Eq-⟦⟧t↑-coherence M ρ uρ c) (Eq-⟦⟧t↑-coherence N ρ uρ c)))
-
+    -- M ⟨ γ ⟩
     Eq-⟦⟧t↑-coherence {Δ} {A} (_⟨_⟩ {.Δ} {Γ} {.A} M γ) ρ uρ c = 
                       Eq-trans A (Eq-⟦⟧t↑-coherence M (⟦ γ ⟧s ρ) (Uni-⟦⟧s γ _ uρ ) c)
                                  (Eq-⟦⟧t-compat M (Uniᵉ↑ Γ c (Uni-⟦⟧s γ ρ uρ)) (Uni-⟦⟧s γ _ (Uniᵉ↑ Δ c uρ)) 
@@ -452,12 +456,15 @@ module KSem (K : Kripke )  where
 
     Eq-⟦⟧s↑-coherence : ∀ {Δ Γ}(γ : Δ ⇛ Γ){w w'}(ρ : w ⊩ᵉ Δ)(uρ : Uni⟨ w ⊩ᵉ Δ ⟩ ρ)(c : w' ≥ʷ w)
                                       → Eq⟨ w' ⊩ᵉ Γ ⟩[ ↑ᵉ[ c , Γ ]⟨ ⟦ γ ⟧s ρ ⟩ , ⟦ γ ⟧s ↑ᵉ[ c , Δ ]⟨ ρ ⟩ ]
+    -- π c
     Eq-⟦⟧s↑-coherence {Δ} {Γ} (π c) ρ uρ c' = Eqᵉ↑π Γ _ c' c
+    -- γ ⊙ δ
     Eq-⟦⟧s↑-coherence {Θ} {Δ} (_⊙_ {.Θ} {Γ} {.Δ} γ δ) ρ uρ c = 
                       Eqᵉ-trans Δ (Eq-⟦⟧s↑-coherence γ _ (Uni-⟦⟧s δ ρ uρ) c) 
                                   (Eq-⟦⟧s-compat γ (Uniᵉ↑ Γ c (Uni-⟦⟧s δ ρ uρ)) 
                                                  (Uni-⟦⟧s δ _ (Uniᵉ↑ Θ c uρ)) 
                                                  (Eq-⟦⟧s↑-coherence δ ρ uρ c))
+    -- γ [ x ↦ M ]
     Eq-⟦⟧s↑-coherence (γ [ x ↦ M ]) ρ uρ c = (Eq-⟦⟧s↑-coherence γ ρ uρ c , Eq-⟦⟧t↑-coherence M ρ uρ c)
 
 
@@ -471,24 +478,91 @@ module KSem (K : Kripke )  where
     theorem₄ {Γ} {A} M N (lstep {.M} {M'} {.N} p₁ p₂) ρ uρ = Eq-trans A (theorem₄-≐ M M' p₁ ρ uρ) (theorem₄ M' N p₂ ρ uρ)
     theorem₄ {Γ} {A} M N (rstep {.M} {M'} {.N} p₁ p₂) ρ uρ = Eq-trans A (Eq-sym A (theorem₄-≐ M' M p₁ ρ uρ))
                                                                       (theorem₄ M' N p₂ ρ uρ) 
- 
+
+    -- ugh. sub-occurrence for rules should be ≅ , not ≐. def of ≅ is wrong.
+    -- I'm just going to chug through this for now. 
     theorem₄-≐ : ∀ {Γ A w} (M N : Γ ⊢ A)(MN : Γ ⊢ A ∋ M ≐ N)(ρ : w ⊩ᵉ Γ)(uρ : Uni⟨ w ⊩ᵉ Γ ⟩ ρ) 
          → Eq⟨ w ⊩ A ⟩[ ⟦ M ⟧t ρ , ⟦ N ⟧t ρ ]
-    theorem₄-≐ {Γ} .(∶λ x # f ⇨ M) .(∶λ x # f ⇨ N) (cλ {.Γ} {x} {f} {A} {B} {M} {N} r) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .(M ⋆ P) .(N ⋆ P) (ca₁ {.Γ} {A'} {.A} {M} {N} {P} r) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .(M ⋆ P) .(M ⋆ Q) (ca₂ {.Γ} {A'} {.A} {M} {P} {Q} r) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .(M ⟨ γ ⟩) .(N ⟨ γ ⟩) (cs₁ {Γ'} {.Γ} {.A} {M} {N} {γ} r) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .(M ⟨ γ₁ ⟩) .(M ⟨ γ₂ ⟩) (cs₂ {Γ'} {.Γ} {.A} {M} {γ₁} {γ₂} r) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .(((∶λ x # f ⇨ M) ⟨ γ ⟩) ⋆ N) .(M ⟨ γ [ x ↦ N ] ⟩) (:β {x} {Γ'} {.Γ} {f} {γ} {A'} {.A} {M} {N}) ρ uρ = {!!}
-    theorem₄-≐ {Γ} M .(∶λ x # f ⇨ ((M ⟨ π c ⟩) ⋆ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ])) (:η {.Γ} {A} {B} {x} {f} .M {c}) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .([ Γ' ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ [ x ↦ N ] ⟩) N (:v₁ {Γ'} {.Γ} {.A} {x} {f} {.N} {γ}) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .([ Γ' ∋ x ↳ inΓ ] ⟨ π c ⟩) .([ Γ ∋ x ↳ inΔ ]) (:v₂ {Γ'} {.Γ} {x} {.A} {inΓ} {inΔ} {c}) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .(N ⟨ π c ⟩) N (:sid {.Γ} {.A} {c}) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .((M ⋆ N) ⟨ γ ⟩) .((M ⟨ γ ⟩) ⋆ (N ⟨ γ ⟩)) (:sapp {Γ'} {.Γ} {γ} {A'} {.A} {M} {N}) ρ uρ = {!!}
-    theorem₄-≐ {Γ} {A} .((M ⟨ γ ⟩) ⟨ δ ⟩) .(M ⟨ γ ⊙ δ ⟩) (:s⊙ {.Γ} {Γ'} {Δ} {.A} {δ} {γ} {M}) ρ uρ = {!!}
+    -- cλ (congruence for ∶λ x ⇨ M)
+    theorem₄-≐ {Γ} .(∶λ x # f ⇨ M) .(∶λ x # f ⇨ N) (cλ {.Γ} {x} {f} {A} {B} {M} {N} r) ρ uρ = 
+                 λ c uv → theorem₄-≐ M N r _ ((Uniᵉ↑ Γ c uρ , uv))      
+    -- ca₁ (congruence for app on left side)
+    theorem₄-≐ {Γ} {B} .(M ⋆ P) .(N ⋆ P) (ca₁ {.Γ} {A} {.B} {M} {N} {P} r) ρ uρ = 
+                 (theorem₄-≐ M N r ρ uρ) P.refl (Uni-⟦⟧t P ρ uρ) 
+    -- ca₂ (congruence for app on left side)
+    theorem₄-≐ {Γ} {B} .(M ⋆ P) .(M ⋆ Q) (ca₂ {.Γ} {A} {.B} {M} {P} {Q} r) ρ uρ = 
+                 Eq-cong-app {A} {B} P.refl (Uni-⟦⟧t M ρ uρ) (Uni-⟦⟧t M ρ uρ) (Uni-⟦⟧t P ρ uρ) (Uni-⟦⟧t Q ρ uρ) (Eq-refl (A ⇒ B) (⟦ M ⟧t ρ)) (theorem₄-≐ P Q r ρ uρ)
+    -- cs₁ (congruence esubst term on lhs)
+    theorem₄-≐ {Γ} {A} .(M ⟨ γ ⟩) .(N ⟨ γ ⟩) (cs₁ {Γ'} {.Γ} {.A} {M} {N} {γ} r) ρ uρ = 
+                 theorem₄-≐ M N r ( ⟦ γ ⟧s ρ ) (Uni-⟦⟧s γ ρ uρ)
+    -- cs₂ (congruence esubst term on lhs)
+    theorem₄-≐ {Γ} {A} .(M ⟨ γ₁ ⟩) .(M ⟨ γ₂ ⟩) (cs₂ {Γ'} {.Γ} {.A} {M} {γ₁} {γ₂} r) ρ uρ = 
+                Eq-⟦⟧t-compat M (Uni-⟦⟧s γ₁ ρ  uρ) (Uni-⟦⟧s γ₂ ρ  uρ) (th₄ˢ-≐ γ₁ γ₂ r ρ uρ) 
+    -- :β  
+    theorem₄-≐ {Γ} {A} .(((∶λ x # f ⇨ M) ⟨ γ ⟩) ⋆ N) .(M ⟨ γ [ x ↦ N ] ⟩) (:β {x} {Γ'} {.Γ} {f} {γ} {A'} {.A} {M} {N}) ρ uρ = 
+                Eq-⟦⟧t-compat M ( Uniᵉ↑ Γ' P.refl (Uni-⟦⟧s γ ρ uρ) , Uni-⟦⟧t N ρ uρ )
+                                          (Uni-⟦⟧s γ ρ uρ , Uni-⟦⟧t N ρ uρ )
+                                          (Eqᵉ↑-id Γ' P.refl , Eq-refl A' _)
+    -- :η 
+    --    ⟦ M ⟧t (πᵉ c (↑ᵉ[ c' , Γ ]⟨ ρ ⟩ , v))  refl  v        (i.e. ⟦ ∶λ x # f ⇨ ((M ⟨ π c ⟩) ⋆ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟧
+    --    =  (⟦ M ⟧t ↑ᵉ[ c' , Γ ]⟨ ρ ⟩)   refl  v
+    --    = ↑[ c' , A ⇒ B ]⟨ ⟦ M ⟧t ρ ⟩  refl v
+    --    = (⟦ M ⟧t ρ) c' v                                           (i.e. ⟦ M ⟧
+    theorem₄-≐ {Γ} {A ⇒ B} {w} M .(∶λ x # f ⇨ ((M ⟨ π c ⟩) ⋆ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ])) (:η {.Γ} {.A} {.B} {x} {f} .M {c}) ρ uρ = 
+               λ {w'} c' {v} uv → 
+                      Eq-sym B {w'} 
+                          (Eq-trans B {w'} {⟦ M ⟧t (πᵉ c (↑ᵉ[ c' , Γ ]⟨ ρ ⟩ , v)) P.refl v} { (⟦ M ⟧t ↑ᵉ[ c' , Γ ]⟨ ρ ⟩) P.refl  v} {(⟦ M ⟧t ρ) c' v}
+                               (Eq-cong-app {A} {B} P.refl 
+                                      (Uni-⟦⟧t M _ (Uniᵉπ c (Uniᵉ↑ Γ c' uρ , uv))) (Uni-⟦⟧t M _ (Uniᵉ↑ Γ c' uρ )) 
+                                      uv uv 
+                                      (Eq-⟦⟧t-compat M (Uniᵉπ c (Uniᵉ↑ Γ c' uρ , uv)) (Uniᵉ↑ Γ c' uρ) (Eqᵉ-trans Γ (Eqπ-step {w'} (lemma₃ {Γ}) c)
+                                                                                                   (Eqπ-id Γ lemma₃))) 
+                                      (Eq-refl A v))
+                               (Eq-trans B {w'} {(⟦ M ⟧t ↑ᵉ[ c' , Γ ]⟨ ρ ⟩) P.refl  v} {↑[ c' , A ⇒ B ]⟨ ⟦ M ⟧t ρ ⟩ P.refl v} {(⟦ M ⟧t ρ) c' v}
+                                      (Eq-cong-app {A} {B} {w'} {w'} P.refl (Uni-⟦⟧t M _ (Uniᵉ↑ Γ c' uρ)) (Uni↑ (A ⇒ B) c' _ (Uni-⟦⟧t M _ uρ)) uv uv 
+                                               (Eq-sym (A ⇒ B) {w'} (Eq-⟦⟧t↑-coherence M {w} {w'} ρ uρ c' ))   -- 
+                                               (Eq-refl A v)) 
+                                      (Eq-sym B (Eq-coherence-app↑ {w} {A} {B} (⟦ M ⟧t ρ) {w'}  c' {v}) )))
+    -- lookup of x in subst extended with x reduces to refl
+    theorem₄-≐ {Γ} {A} .([ Γ' ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ [ x ↦ N ] ⟩) N (:v₁ {Γ'} {.Γ} {.A} {x} {f} {.N} {γ}) ρ uρ = Eq-refl A _
+    -- meaning of var invariant across weakenings. 
+    theorem₄-≐ {Δ} {A} .([ Γ ∋ x ↳ inΓ ] ⟨ π c ⟩) .([ Δ ∋ x ↳ inΔ ]) (:v₂ {Γ} {.Δ} {x} {.A} {inΓ} {inΔ} {c}) ρ uρ = Eq-sym A (Eq-lookup c inΔ inΓ) 
+    -- explicit subst with id weakening is same as unsubstituted term.
+    theorem₄-≐ {Γ} {A} .(N ⟨ π c ⟩) N (:sid {.Γ} {.A} {c}) ρ uρ = Eq-⟦⟧t-compat N (Uniᵉπ c uρ) uρ (Eqπ-id Γ c)
+    -- unrolling of definitions proves app subst law by refl
+    theorem₄-≐ {Γ} {A} .((M ⋆ N) ⟨ γ ⟩) .((M ⟨ γ ⟩) ⋆ (N ⟨ γ ⟩)) (:sapp {Γ'} {.Γ} {γ} {A'} {.A} {M} {N}) ρ uρ = Eq-refl A _
+    -- same for composition.
+    theorem₄-≐ {Γ} {A} .((M ⟨ γ ⟩) ⟨ δ ⟩) .(M ⟨ γ ⊙ δ ⟩) (:s⊙ {.Γ} {Γ'} {Δ} {.A} {δ} {γ} {M}) ρ uρ = Eq-refl A _
+
 
     th₄ˢ : ∀ {Δ Γ w} (γ δ : Δ ⇛ Γ)(γδ : Δ ⊢ Γ ∋ γ ≅ˢ δ)(ρ : w ⊩ᵉ Δ)(uρ : Uni⟨ w ⊩ᵉ Δ ⟩ ρ)  
          → Eq⟨ w ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s ρ , ⟦ δ ⟧s ρ ]
-    th₄ˢ γ δ cvε ρ = {!!}
+    th₄ˢ {Δ} {Γ} .δ δ refl ρ uρ = Eqᵉ-refl Γ _
+    th₄ˢ {Δ} {Γ} γ δ (lstep {.γ} {γ'} {.δ} p₁ p₂) ρ uρ = Eqᵉ-trans Γ (th₄ˢ-≐ γ γ' p₁ ρ uρ) (th₄ˢ γ' δ p₂ ρ uρ)
+    th₄ˢ {Δ} {Γ} γ δ (rstep {.γ} {γ'} {.δ} p₁ p₂) ρ uρ = Eqᵉ-trans Γ (Eqᵉ-sym Γ (th₄ˢ-≐ γ' γ p₁ ρ uρ))
+                                                                                        (th₄ˢ γ' δ p₂ ρ uρ)
 
+
+
+    -- remaining steps are trivial. 
+    th₄ˢ-≐ : ∀ {Δ Γ w} (γ δ : Δ ⇛ Γ)(γδ : Δ ⊢ Γ ∋ γ ≐ˢ δ)(ρ : w ⊩ᵉ Δ)(uρ : Uni⟨ w ⊩ᵉ Δ ⟩ ρ)  
+         → Eq⟨ w ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s ρ , ⟦ δ ⟧s ρ ]
+    th₄ˢ-≐  {Ψ} {Γ} .(δ₁ ⊙ γ) .(δ₂ ⊙ γ) (c∘₁ {.Ψ} {Δ} {.Γ} {δ₁} {δ₂} {γ} r) ρ uρ = th₄ˢ-≐ δ₁ δ₂ r _ (Uni-⟦⟧s γ _ uρ )
+    th₄ˢ-≐  {Ψ} {Γ} .(δ ⊙ γ₁) .(δ ⊙ γ₂) (c∘₂ {.Ψ} {Δ} {.Γ} {δ} {γ₁} {γ₂} r) ρ uρ  = 
+            Eq-⟦⟧s-compat  δ (Uni-⟦⟧s γ₁ _ uρ) (Uni-⟦⟧s γ₂ _ uρ) (th₄ˢ-≐ γ₁ γ₂ r ρ uρ)
+    th₄ˢ-≐  {Δ} {Γ ∙[ x ∶ A ]⊣ f } .(γ₁ [ x ↦ M ]) .(γ₂ [ x ↦ M ]) (c≔₁ {.Δ} {.Γ} {γ₁} {γ₂} {.A} {.x} {.f} {M} r) ρ uρ = 
+            (th₄ˢ-≐ γ₁ γ₂ r ρ uρ , Eq-refl A _)
+    th₄ˢ-≐  {Δ} {Γ ∙[ x ∶ A ]⊣ f } .(γ [ x ↦ M ]) .(γ [ x ↦ N ]) (c≔₂ {.Δ} {.Γ} {γ} {.A} {.x} {.f} {M} {N} r) ρ uρ = 
+            (Eqᵉ-refl Γ _ , theorem₄-≐ M N r ρ uρ)
+    th₄ˢ-≐  {Θ} {Ω} .((γ ⊙ δ) ⊙ θ) .(γ ⊙ (δ ⊙ θ)) (⊙-assoc {.Θ} {Δ} {Γ} {.Ω} {γ} {δ} {θ}) ρ uρ = Eqᵉ-refl Ω _
+    th₄ˢ-≐  {Θ} {Γ ∙[ x ∶ A ]⊣ f} .((γ [ x ↦ M ]) ⊙ δ) .((γ ⊙ δ) [ x ↦ M ⟨ δ ⟩ ]) (∶ext∶⊙ {.Θ} {Δ} {.Γ} {.A} {γ} {.x} {δ} {.f} {M}) ρ uρ =
+            (Eqᵉ-refl Γ _ , Eq-refl A _)
+    th₄ˢ-≐  {Δ} {Γ} .((π c) ⊙ (δ [ x ↦ M ])) δ (∶π∶ext {.Δ} {.Γ} {A} {x} {f} {.δ} {M} {c}) ρ uρ = 
+            (Eqᵉ-trans Γ (Eqπ-step (lemma₃ {Γ}) c) (Eqπ-id Γ lemma₃))
+    th₄ˢ-≐  {Θ} {Γ} .((π c₁) ⊙ (π c₂)) .(π c₃) (∶⊙∶π {.Θ} {Δ} {.Γ} {c₂} {c₁} {c₃}) ρ uρ = Eqππ Γ Δ Θ c₁ c₂ c₃
+    th₄ˢ-≐  {Δ} {Γ} .(δ ⊙ (π c)) δ (:πid {.Δ} {.Γ} {.δ} {c}) ρ uρ = Eq-⟦⟧s-compat δ (Uniᵉπ c uρ) uρ (Eqπ-id Δ c)
+    th₄ˢ-≐  {Γ} {ε} γ .(π c) (:πε {.Γ} {.γ} {c}) ρ uρ = tt
+    th₄ˢ-≐  {Δ} {Γ ∙[ x ∶ A ]⊣ f} γ .(((π c) ⊙ γ) [ x ↦ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ occ ] ⟨ γ ⟩ ]) (:ηε {.Δ} {.Γ} {.A} .x {.f} occ .γ c) ρ uρ with (⟦ γ ⟧s ρ) 
+    th₄ˢ-≐ {Δ} {Γ ∙[ x ∶ A ]⊣ f} γ .(((π c) ⊙ γ) [ x ↦ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! {Γ} {f} ] ⟨ γ ⟩ ]) (:ηε .x here! .γ c) ρ uρ | ρ' , v =  Eqᵉ-sym Γ (Eqᵉ-trans Γ (Eqπ-step (lemma₃ {Γ}) c) (Eqπ-id Γ lemma₃)) , Eq-refl A _
+    th₄ˢ-≐ {Δ} {Γ ∙[ x ∶ A ]⊣ f} γ .(((π c) ⊙ γ) [ x ↦ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ there {x} {A} {Γ} f occ ] ⟨ γ ⟩ ]) (:ηε .x (there .f occ) .γ c) ρ uρ | ρ' , v = ⊥-elim (refuteFresh f occ)
 --- End of module KSem   (Kripke semantics for terms)
