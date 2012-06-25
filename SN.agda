@@ -36,8 +36,10 @@ mutual
   -- reify (⟦M⟧) ≝ λ(z₁ : A₁)...λ(zn : An).(⟦M⟧ val(z₁)...val(zn)
   -- where ⟦M⟧ val(z₁)...val(zn) is a proof tree of type ♭ and z₁ ... zn are fresh names
   --  and if x is a variable of type A₁ → ...Ak → B, then
-  --  val(x) = Λ([v₁]...Λ([vk](x reify(v₁) ... reify(vn))  (where [v₁] is simplified abstraction of (c, v) wher
-  --       c is a world extension w' ≥ w, v is an element of w' ⊩ Ai
+  --  val(x) = Λ([v₁]...Λ([vk](x reify(v₁) ... reify(vn))  (where [v₁] is simplified abstraction of (c, v) where
+  --       c is a world extension w' ≥ w, v is an element of w' ⊩ Ai. Essentially, the kripke structure
+  --       intelligently deals with reindexing of variables. Moves information from one world to a world where 
+  --       we know more. 
   -- Example: 
   --   M ∈ ε ⊢ ((♭ → ♭) → ♭) → (♭ → ♭) → ♭  = λ [x : ((♭ → ♭) → ♭)]. λ [y : (♭ → ♭)]. x ⋆ y
   --   reify(⟦M⟧) = λ(z₁ : (♭ → ♭) → ♭). λ(z₂ : ♭ → ♭). (⟦M⟧ val(z₁) val(z₂))
@@ -56,9 +58,13 @@ mutual
 
   -- map value of term kripke model to well typed term.
   reify : ∀ Γ A (u : Γ ⊩ A) → Γ ⊢ A
-  reify Γ ♭ u = u lemma₃
+  reify Γ ♭ u = u P.refl
   reify Γ (A ⇒ B) u = ∶λ (fresh Γ) # (isfresh Γ)
-                                  ⇨ (reify _ B (u lemma₅ (val _ A (λ {Δ} (pr : Δ ≥ _) → [ _ ∋ fresh Γ ↳ lemma₂ pr here! ]))))
+                                  ⇨ (reify (Γ ∙[ fresh Γ ∶ A ]⊣ isfresh Γ) 
+                                               B
+                                               (u lemma₅ (val (Γ ∙[ fresh Γ ∶ A ]⊣ isfresh Γ)      -- semantic application of ⟦ M ⟧  i.e. (app ⟦M⟧ (val (fresh Γ)))
+                                                                       A 
+                                                                      (λ {Δ} (c : Δ ≥ _) → [ _ ∋ fresh Γ ↳ lemma₂ c here! ]))))
 
   -- map upward-closed family of (well-typed) terms to value in kripke term model
   --   Intuitively val intuitively takes a variable and produces  proof tree of the form of a variable applied to zero or
@@ -66,84 +72,86 @@ mutual
   --   Observations:
   --      1. these look a lot like neutral values. How can I make this more precise?
   --      2. this function looks very underspecified. These upward closed familes could be arbitrary but they almost 
-  --          certainly are not. fix this.
+  --          certainly are not. How can I make this more precise? 
   val : ∀ Γ A (f : Γ ⊢⇑ A) → Γ ⊩ A
-  val Γ ♭ t = t
-  val Γ (A ⇒ B) t = λ {Δ} pr a → val Δ B (λ {Ε} inc → t (lemma₄ inc pr) ⋆ (reify Ε A ↑[ inc , A ]⟨ a ⟩))
+  val Γ ♭ f = f
+  val Γ (A ⇒ B) f = λ {Δ} (c : Δ ≥ Γ) (a : Δ ⊩ A) →  
+                               val Δ B (λ {Ε} (c' : Ε ≥ Δ) → f (P.trans c' c) ⋆ (reify Ε A ↑[ c' , A ]⟨ a ⟩))
 
 --- END OF mutual decl for reify/val
 
 
 -- what does valEq below say? 
--- first thought, the type (t : ∀ {Δ} (pr : Δ ≥ Γ) → Δ ⊢ A) needs a name.  I will use 'upward closed familiy of terms' for now
+-- The type (t : ∀ {Δ} (pr : Δ ≥ Γ) → Δ ⊢ A) needs a name.  I use  'upward closed familiy of terms' for now
 -- Is this a family of proof trees 'above Γ' which designate the same term? 
 -- essentially this is the idea, even if the straightforward constructive reading is different
 -- i.e. for every environment Δ that contains Γ, a well typed term in Δ.
 
--- OK. two identical upward-closed family of terms yield identical kripke values. 
-valEq : ∀ {Γ} A {f₁ f₂ : ∀ {Δ} (pr : Δ ≥ Γ) → Δ ⊢ A} (h : ∀ {Δ} (pr : Δ ≥ Γ) → f₁ pr ≡ f₂ pr) →
+-- OK. two extensionally identical/equal upward-closed family of terms yield Eq kripke values. 
+valEq : ∀ {Γ} A {f₁ f₂ : Γ ⊢⇑ A} (h : ∀ {Δ} (c : Δ ≥ Γ) → f₁ c ≡ f₂ c) →
         Eq⟨ Γ ⊩ A ⟩[ val Γ A f₁ , val Γ A f₂ ]
 valEq ♭ h = h
-valEq (A ⇒ B) h =
-  λ {Δ} pr {a} uni → valEq B (λ {Ε} inc → cong (λ t → t ⋆ reify Ε A ↑[ inc , A ]⟨ a ⟩)
-    (h (lemma₁ (λ {x} {A₁} ext → lemma₂ inc (lemma₂ pr ext)))))
+valEq {Γ} (A ⇒ B) h =
+  λ {Δ} (c : Δ ≥ Γ) {v : Δ ⊩ A} uv → valEq B (λ {Ε} (c' : Ε ≥ Δ) → cong (λ M → M ⋆ reify Ε A ↑[ c' , A ]⟨ v ⟩)
+    (h (lemma₁ (λ {x} {A₁} occ → lemma₂ c' (lemma₂ c occ)))))
 
 
 -- lifting result of val over contexts same as taking value at higher world 
 --    (with appropriately constructed upward closed family of terms)
-val↑ : ∀ {Γ} A {Δ} (pr : Δ ≥ Γ) {f : ∀ {Δ} (pr : Δ ≥ Γ) → Δ ⊢ A} →
-       Eq⟨ Δ ⊩ A ⟩[ ↑[ pr , A ]⟨ val Γ A f ⟩ , val Δ A (λ {Ε} (inc : Ε ≥ Δ) → f (lemma₄ inc pr)) ]
-val↑ ♭ pr = λ _ → refl
-val↑ (A ⇒ B) pr {f} =
-  λ {Δ} inc {a} uni → valEq B (λ {Ε} inc → cong (λ t → f t ⋆ reify Ε A ↑[ inc , A ]⟨ a ⟩)
+val↑ : ∀ {Γ} A {Δ} (c : Δ ≥ Γ) {f : Γ ⊢⇑ A} →
+       Eq⟨ Δ ⊩ A ⟩[ ↑[ c , A ]⟨ val Γ A f ⟩ , val Δ A (λ {Ε} (c' : Ε ≥ Δ) → f (P.trans c' c)) ]
+val↑ ♭ c = λ _ → refl
+val↑ {Γ} (A ⇒ B) {Δ} c {f} =
+  λ {Δ'} (c' : Δ' ≥ Δ) {v : Δ' ⊩ A} uv → valEq B (λ {Ε} c' → cong (λ t → f t ⋆ reify Ε A ↑[ c' , A ]⟨ v ⟩)
   (lemma₇ _ _))
 
 mutual
 
-  -- Equal semantic values reify to elements in the same equivalence class of terms. 
+  -- Equal semantic values reify to elements in the same equivalence class of terms.  (simple induction on type)
   theorem₁ : ∀ {Γ} A {u v} (eq : Eq⟨ Γ ⊩ A ⟩[ u , v ]) → reify Γ A u ≡ reify Γ A v
   theorem₁ ♭ eq = eq _
   theorem₁ {Γ} (A ⇒ B) eq = cong (∶λ_#_⇨_ (fresh Γ)(isfresh Γ)) (theorem₁ B (eq lemma₅ (valUni A)))
 
   -- reflection/values of upward closed family of terms is a uniform value.   (What does this mean?)
-  valUni : ∀ {Γ} A {f : ∀ {Δ} pr → Δ ⊢ A} → Uni⟨ Γ ⊩ A ⟩ val Γ A f
+  valUni : ∀ {Γ} A {f : Γ ⊢⇑ A} → Uni⟨ Γ ⊩ A ⟩ val Γ A f
   valUni ♭ = tt
   valUni (A ⇒ B) {f} =
     (λ {Δ} inc {a} uni → valUni B) ,
     (λ {Δ} inc {v₁} {v₂} uni₁ uni₂ eq →
-      valEq B (λ {Ε} pr → cong (_⋆_ (f (lemma₄ pr inc))) (theorem₁ A (Eq-cong-↑ A pr eq)))) ,
+      valEq B (λ {Ε} pr → cong (_⋆_ (f (P.trans pr inc))) (theorem₁ A (Eq-cong-↑ A pr eq)))) ,
     (λ {Δ} {Ε} c₁ c₂ c₃ {v} uni → Eq-trans B (val↑ B c₂)
       (valEq B (λ {Φ} pr → cong₂ (λ inc t → f inc ⋆ t) (lemma₇ _ _)
                (theorem₁ A (Eq-sym A (Eq↑↑ A v _ _ _))))))
 
-infix 10 idε_
+infix 10 idᵉ_
 
 -- default 'identity' term model environment
-idε_ : (Γ : Context) → Γ ⊩ᵉ Γ
-idε ε = tt
-idε Γ ∙[ x ∶ A ]⊣ f =
-  ↑ᵉ[ lemma₅ , Γ ]⟨ idε Γ ⟩ ,
+idᵉ_ : (Γ : Context) → Γ ⊩ᵉ Γ
+idᵉ ε = tt
+idᵉ Γ ∙[ x ∶ A ]⊣ f =
+  ↑ᵉ[ lemma₅ , Γ ]⟨ idᵉ Γ ⟩ ,
   val _ A (λ {Δ} inc → [ Δ ∋ x ↳ lemma₂ inc here! ])
 
-id↑ᵉ : ∀ {Γ Δ} (c : Δ ≥ Γ) → Δ ⊩ᵉ Γ
-id↑ᵉ {Γ} {Δ} c = ↑ᵉ[ c , Γ ]⟨ idε Γ ⟩
+idᵉ↑ : ∀ {Γ Δ} (c : Δ ≥ Γ) → Δ ⊩ᵉ Γ
+idᵉ↑ {Γ} {Δ} c = ↑ᵉ[ c , Γ ]⟨ idᵉ Γ ⟩
 
 -- normal form = reify ∘ eval
 nf : ∀ {Γ A} (M : Γ ⊢ A) → Γ ⊢ A
-nf {Γ} {A} M = reify Γ A (⟦ M ⟧t (idε Γ))
+nf {Γ} {A} M = reify Γ A (⟦ M ⟧t (idᵉ Γ))
 
-corollary₁ : ∀ {Γ A} {M N : Γ ⊢ A} (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idε Γ) , ⟦ N ⟧t (idε Γ) ]) → nf M ≡ nf N
+corollary₁ : ∀ {Γ A} {M N : Γ ⊢ A} (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]) → nf M ≡ nf N
 corollary₁ eq = theorem₁ _ eq
 
 
+
 -- *******  Completeness for equational theory.  i.e. proper completeness  *************
--- *********      Goal:  Eq(⟦M⟧idε, ⟦N⟧idε)  implies   M ≅ N                    ******************
+-- *********      Goal:  Eq(⟦M⟧idᵉ, ⟦N⟧idᵉ)  implies   M ≅ N                    ******************
 -- use Kripke relation CV
 -- 
 -- [Γ, A] M ∿ u  ≡ M, u are CV-related at type A in context Γ    (equiv to tait computability predicate)
 -- [Δ, Γ]ε γ ∿ ρ   ≡  γ, ρ are CV-related at env Γ in context Δ
 
-infix 10 [_,_]_∿_  [_,_]ε_∿_
+infix 10 [_,_]_∿_  [_,_]_∿ᵉ_
 
 -- ∿ relates terms to values. 
 -- t, T ∿-related at base/ground type if composition of t with proj subst π (c : Δ ≥ Γ) and T applied to 
@@ -155,22 +163,22 @@ infix 10 [_,_]_∿_  [_,_]ε_∿_
   ∀ {Δ} (c : Δ ≥ Γ) {N v} (cv : [ Δ , A ] N ∿ v) → [ Δ , B ] M ⟨ π c ⟩ ⋆ N ∿ u c v
 
 
--- ↯ε relates term substitutions to value environments.
+-- ∿ᵉ relates term substitutions to value environments.
 -- current definition seems a bit messy. Is there a reason? Why not use V2?
-data [_,_]ε_∿_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
-  ε : ∀ {γ : Δ ⇛ ε} → [ Δ , ε ]ε γ ∿ tt
-  ∙ : ∀ {Γ x A f} {γ : Δ ⇛ Γ ∙[ x ∶ A ]⊣ f} {ρ : Δ ⊩ᵉ Γ} (πγρ : [ Δ ,  Γ ]ε π lemma₅ ⊙ γ ∿ ρ)
+data [_,_]_∿ᵉ_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
+  ε : ∀ {γ : Δ ⇛ ε} → [ Δ , ε ] γ ∿ᵉ tt
+  ∙ : ∀ {Γ x A f} {γ : Δ ⇛ Γ ∙[ x ∶ A ]⊣ f} {ρ : Δ ⊩ᵉ Γ} (πγρ : [ Δ ,  Γ ] π lemma₅ ⊙ γ ∿ᵉ ρ)
       {u : Δ ⊩ A} (xu : [ Δ , A ] [ _ ∋ x ↳ here! ] ⟨ γ ⟩ ∿ u) →
-      [ Δ , Γ ∙[ x ∶ A ]⊣ f ]ε γ ∿ (ρ , u)
+      [ Δ , Γ ∙[ x ∶ A ]⊣ f ] γ ∿ᵉ (ρ , u)
 
 -- why not the following? todo test if all works this way. (V2)
---  ∙ : ∀ {Γ x A f} {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (γ∿ρ : [ Δ , Γ ]ε γ ∿ ρ)
+--  ∙ : ∀ {Γ x A f} {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (γ∿ρ : [ Δ , Γ ] γ ∿ᵉ ρ)
 --      (T : Δ ⊩ A) (t : Δ ⊢ A) (xu : [ Δ , A ]  t ∿ T) →
---      [ Δ , Γ ∙[ x ∶ A ]⊣ f ]ε (γ [ x ↦ t ]) ∿ (ρ , T)
+--      [ Δ , Γ ∙[ x ∶ A ]⊣ f ] (γ [ x ↦ t ]) ∿ᵉ (ρ , T)
 
--- βη-equivalent terms are ↯-related  to the same semantic values.  
+-- βη-equivalent terms are ∿-related  to the same semantic values.  
 -- (so if I can show that 
---       1. t is ↯-related  to ⟦t⟧  and 
+--       1. t is ∿-related  to ⟦t⟧  and 
 --       2. two semantic values related to a single term are equal in model Eq...
 --   then we should get proper soundness proof)
 ∿≡-cast : ∀ {Γ} A {M M' u} (eq : Γ ⊢ A ∋ M ≅ M') (cv : [ Γ , A ] M ∿ u) → [ Γ , A ] M' ∿ u
@@ -179,11 +187,11 @@ data [_,_]ε_∿_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
 
 
 
--- βη-equivalent subsitutions are ↯ε-related to the same semantic environments.
-∿≡ε-cast : ∀ {Δ} Γ {γ₁ γ₂ ρ} (eq : Δ ⊢ Γ ∋ γ₁ ≅ˢ γ₂) (cv : [ Δ , Γ ]ε γ₁ ∿ ρ) → [ Δ , Γ ]ε γ₂ ∿ ρ
-∿≡ε-cast .ε eq ε = ε
-∿≡ε-cast (Γ ∙[ x ∶ A ]⊣ f) eq (∙ cv xu) =
-   ∙ (∿≡ε-cast Γ (≡*-cong c∘₂ eq) cv) (∿≡-cast A (≡*-cong cs₂ eq) xu)
+-- βη-equivalent subsitutions are ∿ˢ-related to the same semantic environments.
+∿≡ᵉ-cast : ∀ {Δ} Γ {γ₁ γ₂ ρ} (eq : Δ ⊢ Γ ∋ γ₁ ≅ˢ γ₂) (cv : [ Δ , Γ ] γ₁ ∿ᵉ ρ) → [ Δ , Γ ] γ₂ ∿ᵉ ρ
+∿≡ᵉ-cast .ε eq ε = ε
+∿≡ᵉ-cast (Γ ∙[ x ∶ A ]⊣ f) eq (∙ cv xu) =
+   ∙ (∿≡ᵉ-cast Γ (≡*-cong c∘₂ eq) cv) (∿≡-cast A (≡*-cong cs₂ eq) xu)
 
 
 
@@ -195,8 +203,8 @@ data [_,_]ε_∿_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
   ∿≡-cast B (≡*-sym (lstep (ca₁ :s⊙) (lstep (ca₁ (cs₂ ∶⊙∶π)) refl))) (cv _ cvU)
 
 
--- (occ at explicit-subst) ∿-relates to (lookup at occ in semantic env) if explicit-subst and semantic env ∿ε related.
-∿-lookup : ∀ {Δ} Γ {x A} occ {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (cv : [ Δ , Γ ]ε γ ∿ ρ) →
+-- (occ at explicit-subst) ∿-relates to (lookup at occ in semantic env) if explicit-subst and semantic env ∿ᵉ related.
+∿-lookup : ∀ {Δ} Γ {x A} occ {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (cv : [ Δ , Γ ] γ ∿ᵉ ρ) →
             [ Δ , A ] [ Γ ∋ x ↳ occ ] ⟨ γ ⟩ ∿ lookup Γ ρ occ
 ∿-lookup .ε () ε
 ∿-lookup (Γ ∙[ x ∶ A ]⊣ f) here! (∙ cv xu) = xu
@@ -205,19 +213,19 @@ data [_,_]ε_∿_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
 
 
 
--- explicit-subst composition and semantic lifting preserve ↯ε-relation
-∿π : ∀ {Δ} Γ {Ε} (c : Ε ≥ Δ) {γ : Δ ⇛ Γ} {ρ} (cv : [ Δ , Γ ]ε γ ∿ ρ) →
-      [ Ε , Γ ]ε γ ⊙ π c ∿ ↑ᵉ[ c , Γ ]⟨ ρ ⟩
+-- explicit-subst composition and semantic lifting preserve ∿ᵉ-relation
+∿π : ∀ {Δ} Γ {Ε} (c : Ε ≥ Δ) {γ : Δ ⇛ Γ} {ρ} (cv : [ Δ , Γ ] γ ∿ᵉ ρ) →
+      [ Ε , Γ ] γ ⊙ π c ∿ᵉ ↑ᵉ[ c , Γ ]⟨ ρ ⟩
 ∿π .ε c ε = ε
 ∿π (Γ ∙[ x ∶ A ]⊣ f) c (∙ cv xu) =
-  ∙ (∿≡ε-cast Γ (lstep ⊙-assoc refl) (∿π Γ c cv)) (∿≡-cast A (lstep :s⊙ refl) (∿↑ A c xu))
+  ∙ (∿≡ᵉ-cast Γ (lstep ⊙-assoc refl) (∿π Γ c cv)) (∿≡-cast A (lstep :s⊙ refl) (∿↑ A c xu))
 
--- composing with projection  and  projecting semantic values preserve  ∿ε -relation
-∿πᵉ : ∀ {Δ} Γ {Ε} (c : Γ ≥ Ε) {γ : Δ ⇛ Γ} {ρ} (cv : [ Δ , Γ ]ε γ ∿ ρ ) → [ Δ , Ε ]ε π c ⊙ γ ∿ πᵉ c ρ
+-- composing with projection  and  projecting semantic values preserve  ∿ᵉ -relation
+∿πᵉ : ∀ {Δ} Γ {Ε} (c : Γ ≥ Ε) {γ : Δ ⇛ Γ} {ρ} (cv : [ Δ , Γ ] γ ∿ᵉ ρ ) → [ Δ , Ε ] π c ⊙ γ ∿ᵉ πᵉ c ρ
 ∿πᵉ Γ stop cv = ε
 ∿πᵉ .ε (step c () f) ε
 ∿πᵉ (Γ ∙[ x ∶ A ]⊣ f) (step {Δ} {y} {B} c occ f') cv =
-  ∙ (∿≡ε-cast Δ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶⊙∶π) refl)))
+  ∙ (∿≡ᵉ-cast Δ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶⊙∶π) refl)))
     (∿πᵉ (Γ ∙[ x ∶ A ]⊣ f) c cv))
     (∿≡-cast B (≡*-sym (rstep :s⊙ (lstep (cs₁ :v₂) refl))) (∿-lookup _ occ cv))
 
@@ -225,45 +233,63 @@ data [_,_]ε_∿_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
 mutual
 
   -- if p, P related by ∿ε  then t ⟨ ρ ⟩ ∿ ⟦ t ⟧t P
-  lemma₈ : ∀ {A Γ Δ} M {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (cv : [ Δ , Γ ]ε γ ∿ ρ) → [ Δ , A ] M ⟨ γ ⟩ ∿ ⟦ M ⟧t ρ
+  lemma₈ : ∀ {A Γ Δ} M {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (cv : [ Δ , Γ ] γ ∿ᵉ ρ) → [ Δ , A ] M ⟨ γ ⟩ ∿ ⟦ M ⟧t ρ
   lemma₈ [ Γ ∋ x ↳ occ ] cv = ∿-lookup Γ occ cv
   lemma₈ {A ⇒ B} (∶λ x # f ⇨ t) cv =
    λ {Ε} c {N} {v} cvNv → ∿≡-cast B (≡*-sym (lstep (ca₁ :s⊙) (lstep :β refl))) (lemma₈ t
-   (∙ (∿≡ε-cast _ (≡*-sym (lstep ∶π∶ext refl)) (∿π _ c cv)) (∿≡-cast A (rstep :v₁ refl) cvNv)))
+   (∙ (∿≡ᵉ-cast _ (≡*-sym (lstep ∶π∶ext refl)) (∿π _ c cv)) (∿≡-cast A (rstep :v₁ refl) cvNv)))
   lemma₈ {A} (M ⋆ N) cv =
-    ∿≡-cast A (lstep (ca₁ :sid) (rstep :sapp refl)) (lemma₈ M cv lemma₃ (lemma₈ N cv))
+    ∿≡-cast A (lstep (ca₁ :sid) (rstep :sapp refl)) (lemma₈ M cv P.refl (lemma₈ N cv))
   lemma₈ {A} (M ⟨ γ ⟩) cv = ∿≡-cast A (rstep :s⊙ refl) (lemma₈ M (∿subst _ γ cv))
 
   -- lemma₈ but for substitutions, not terms
-  -- i.e. if p, P related by ∿ε  then  (γ ⊙ ρ)  ∿ε  (⟦ γ ⟧s P)
-  ∿subst : ∀ Γ {Δ} (γ : Δ ⇛ Γ) {Ε} {δ : Ε ⇛ Δ} {ρ : Ε ⊩ᵉ Δ} (cv : [ Ε , Δ ]ε δ ∿ ρ) → [ Ε , Γ ]ε γ ⊙ δ ∿ ⟦ γ ⟧s ρ
+  -- i.e. if p, P related by ∿ᵉ  then  (γ ⊙ ρ)  ∿ᵉ  (⟦ γ ⟧s P)
+  ∿subst : ∀ Γ {Δ} (γ : Δ ⇛ Γ) {Ε} {δ : Ε ⇛ Δ} {ρ : Ε ⊩ᵉ Δ} (cv : [ Ε , Δ ] δ ∿ᵉ ρ) → [ Ε , Γ ] γ ⊙ δ ∿ᵉ ⟦ γ ⟧s ρ
   ∿subst Γ (π c) cv = ∿πᵉ _ c cv
-  ∿subst Γ (γ ⊙ δ) cv = ∿≡ε-cast Γ (rstep ⊙-assoc refl) (∿subst Γ γ (∿subst _ δ cv))
+  ∿subst Γ (γ ⊙ δ) cv = ∿≡ᵉ-cast Γ (rstep ⊙-assoc refl) (∿subst Γ γ (∿subst _ δ cv))
   ∿subst (Γ ∙[ x ∶ A ]⊣ f) (γ [ .x ↦ M ]) cv = 
-   ∙ (∿≡ε-cast Γ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶π∶ext) refl))) (∿subst Γ γ cv))
+   ∙ (∿≡ᵉ-cast Γ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶π∶ext) refl))) (∿subst Γ γ cv))
       (∿≡-cast A (≡*-sym (lstep (cs₂ ∶ext∶⊙) (lstep :v₁ refl))) (lemma₈ M cv))
 
 
 mutual 
 
+  -- finish this.
   lemma₉ : ∀ {A Γ} M u (cv : [ Γ , A ] M ∿ u) → (Γ ⊢ A ∋ M ≅ reify Γ A u)
-  lemma₉ M u cv = {!!}
+  lemma₉ {♭} M u cv = {!!}    --  subst .... uniq≥ ([ x  ] π c = x ∘ cv (c = id))
+  -- Goal. M ≅ λx. reify u (val x) 
+ --  Given 
+  -- cv : [ Δ , A ] N ∿ v → [ Δ , B ] (M ⟨ π c ⟩) ⋆ N ∿ u c v
+  -- u : Γ ⊩ A ⇒ B = (Δ ≥ Γ)  (Δ ⊩ A) → (Δ ⊩ B) 
+  -- reify Γ A u = 
+  --    ∶λ (x≡fresh Γ) ⇨ (reify (Γ,x:A) B (u (Γ,x:A ≥ Γ) (val (Γ,x:A) A  (λ {Δ} (c : Δ ≥ (Γ,x:A)) → [ (Γ,x:A) ∋ x ↳ lemma₂ c here! ]))))
+  -- 
+  -- Now, 
+  --  we have M ≅ ∶λ x # f ⇨ ((M ⟨ π c ⟩) ⋆ [ (Γ ∙[ x ∶ A ]⊣ f) ∋ x ↳ here! ]  
+  --  also ∿-val, with Γ = Γ,x:A, the f constructed in reify for x, M = _ x ↳ here!  (i.e. the N we want for cv)
+  --          gives us  _ x ↳ here! ∿ val Γ A f
+  --  hence cv, with N=_ x ↳ here!, v = val Γ A f,  yields M ⟨π c⟩ ⋆  _ x ↳ here! ∿  u c (val x)     
+  --       by IH we then know    M ⟨π c⟩ ⋆  _ x ↳ here! ≅  reify (u c (val x))
+  --     by trans we are done.
+  lemma₉ {A ⇒ B} M u cv = {!!}    -- 
+
 
   ∿-val : ∀ {A Γ} M (f : Γ ⊢⇑ A)(h : ∀ {Δ} (c : Δ ≥ Γ) → Δ ⊢ A ∋ M ⟨ π c ⟩ ≅ f c) → [ Γ , A ] M ∿ val Γ A f
   ∿-val M f Mf≅ = {!!}
 
-
-π∿id↑ᵉ : ∀ {Γ Δ} (c : Δ ≥ Γ) → [ Δ , Γ ]ε π c ∿ id↑ᵉ c
+-- this is important.
+π∿id↑ᵉ : ∀ {Γ Δ} (c : Δ ≥ Γ) → [ Δ , Γ ] π c ∿ᵉ idᵉ↑ c
 π∿id↑ᵉ c = {!!}
 
+-- by π∿id↑ᵉ, lemma₈ , lemma₉ we get M⟨π c⟩≅nf(M) where c:Γ≥Γ,  since M≅M⟨π c⟩ by trans get result.
 theorem₂ : ∀ {Γ A} (M : Γ ⊢ A) → Γ ⊢ A ∋ M ≅ nf M
 theorem₂ M = {!!}
 
 
 -- now easy to prove Theorem 3. 
--- proof: know by corollary 1 that nf(M) = nf(N)
-
-theorem₃ : ∀ {Γ A} M N (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idε Γ) , ⟦ N ⟧t (idε Γ) ]) → Γ ⊢ A ∋ M ≅ N
+-- proof: know by corollary 1 that nf(M) ≡ nf(N) so ≅ by refl. 
+--  by theorem₂ know M ≅ nf(M),  N ≅ nf(N), result follows trivially by sym, trans.
+theorem₃ : ∀ {Γ A} M N (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]) → Γ ⊢ A ∋ M ≅ N
 theorem₃ M N eq = {!!}
 
 
@@ -274,7 +300,7 @@ reifyˢ Δ ε tt = π stop
 reifyˢ Δ (Γ ∙[ x ∶ A ]⊣ f) (ρ , v) = (reifyˢ  Δ Γ ρ)[ x ↦ reify Δ A v ]
 
 nfˢ : ∀ {Γ Δ} (M : Δ ⇛ Γ) → Δ ⇛ Γ
-nfˢ {Γ} {Δ} γ = reifyˢ Δ Γ (⟦ γ ⟧s (idε Δ))
+nfˢ {Γ} {Δ} γ = reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ Δ))
 
 -- completeness result follows from similar work as for proof trees. 
 -- i.e. prove γ ≅ˢ nf γ   
@@ -314,9 +340,9 @@ NV {Γ} {A ⇒ B} v = ∀ {Δ : Context} (c : Δ ≥ Γ) (u : Δ ⊩ A) (nu : NV
 
 -- similar property of substitutions.
 -- option 1
-NVε : ∀ {Δ} {Γ} (ρ : Δ ⊩ᵉ Γ) → Set
-NVε {Δ} {ε} tt = ⊤
-NVε {Δ} {Γ ∙[ x ∶ A ]⊣ f} (ρ , v) = NVε {Δ} {Γ} ρ × NV {Δ} {A} v
+NVᵉ : ∀ {Δ} {Γ} (ρ : Δ ⊩ᵉ Γ) → Set
+NVᵉ {Δ} {ε} tt = ⊤
+NVᵉ {Δ} {Γ ∙[ x ∶ A ]⊣ f} (ρ , v) = NVᵉ {Δ} {Γ} ρ × NV {Δ} {A} v
 
 -- option 2 (data)
 -- data NVε : ∀ {Δ Γ} (ρ : Δ ⊩ᵉ Γ) → Set where
@@ -352,6 +378,6 @@ NVε {Δ} {Γ ∙[ x ∶ A ]⊣ f} (ρ , v) = NVε {Δ} {Γ} ρ × NV {Δ} {A} v
 -- (λ x:A.M) ≅ (λ y:A.N) ⇒ M ⟨x ↦ z⟩ ≅ N⟨y ↦ z⟩ for z fresh 
 -- i.e.
 -- Γ ⊢ A ⇒ B ∋ (∶λ x # f . M) ≅ (∶λ y # f . N)
---         → M ⟨ π (lemma₃ Γ) [ x ↦ z ] ⟩ ≅ N ⟨ π (lemma₃ Γ) [ y ↦ z ] ⟩ 
+--         → M ⟨ π (P.refl Γ) [ x ↦ z ] ⟩ ≅ N ⟨ π (P.refl Γ) [ y ↦ z ] ⟩ 
 
 

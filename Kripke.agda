@@ -97,14 +97,14 @@ module KSem  (K : Kripke )  where
   Eq-refl ♭ u = λ _ → refl
   Eq-refl (A ⇒ B) u = λ c v → Eq-refl B _    
 
-  Eq-sym : ∀ A {w t u} (eq : Eq⟨ w ⊩ A ⟩[ t , u ]) → Eq⟨ w ⊩ A ⟩[ u , t ]
+  Eq-sym : ∀ A {w u v} (eq : Eq⟨ w ⊩ A ⟩[ u , v ]) → Eq⟨ w ⊩ A ⟩[ v , u ]
   Eq-sym ♭ eq = sym ∘ eq 
   Eq-sym (A ⇒ B) eq = λ c u → Eq-sym B ((eq c u))
 
-  Eq-trans : ∀ A {w s t u} (eq₁ : Eq⟨ w ⊩ A ⟩[ s , t ]) (eq₂ : Eq⟨ w ⊩ A ⟩[ t , u ]) →
-             Eq⟨ w ⊩ A ⟩[ s , u ]
+  Eq-trans : ∀ A {w u₁ u₂ u₃} (eq₁ : Eq⟨ w ⊩ A ⟩[ u₁ , u₂ ]) (eq₂ : Eq⟨ w ⊩ A ⟩[ u₂ , u₃ ]) →
+             Eq⟨ w ⊩ A ⟩[ u₁ , u₃ ]
   Eq-trans ♭ eq₁ eq₂ = λ c → trans (eq₁ c) (eq₂ c) 
-  Eq-trans (S ⇒ T) eq₁ eq₂ = λ c u → Eq-trans T (eq₁ c u) (eq₂ c u)
+  Eq-trans (S ⇒ T) eq₁ eq₂ = λ c u' → Eq-trans T (eq₁ c u') (eq₂ c u')
 
 
   -- "equal uniform values can be substituted in app"
@@ -121,10 +121,10 @@ module KSem  (K : Kripke )  where
 
 
   --  "↑  gives equal results for equal input"
-  Eq-cong-↑ : ∀ A {w w'} (c : w' ≥ʷ w) {s t} (eq : Eq⟨ w ⊩ A ⟩[ s , t ]) →
-             Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]⟨ s ⟩ , ↑[ c , A ]⟨ t ⟩ ]
+  Eq-cong-↑ : ∀ A {w w'} (c : w' ≥ʷ w) {u₁ u₂} (eq : Eq⟨ w ⊩ A ⟩[ u₁ , u₂ ]) →
+             Eq⟨ w' ⊩ A ⟩[ ↑[ c , A ]⟨ u₁ ⟩ , ↑[ c , A ]⟨ u₂ ⟩ ]
   Eq-cong-↑ ♭ c eq = λ c' → eq _
-  Eq-cong-↑ (A ⇒ B) c eq = λ c' {v} uni → eq _ uni
+  Eq-cong-↑ (A ⇒ B) c eq = λ c' {v} uv → eq _ uv
 
    -- "↑ gives uniform output for uniform input"
   Uni↑ : ∀ A {w w' : W} (c : w' ≥ʷ w) u (uni : Uni⟨ w ⊩ A ⟩ u) → Uni⟨ w' ⊩ A ⟩ (↑[ c , A ]⟨ u ⟩)
@@ -481,8 +481,8 @@ module KSem  (K : Kripke )  where
     theorem₄ {Γ} {A} M N (rstep {.M} {M'} {.N} p₁ p₂) ρ uρ = Eq-trans A (Eq-sym A (theorem₄-≐ M' M p₁ ρ uρ))
                                                                       (theorem₄ M' N p₂ ρ uρ) 
 
-    -- ugh. sub-occurrence for rules should be ≅ , not ≐. def of ≅ is wrong.
-    -- I'm just going to chug through this for now. 
+    -- Fun thought. Seems that sub-occurrence for rules should be ≅ , not ≐. and that def of ≅ is wrong.
+    -- but because the relation is a congruence, the naive sym refl trans closure does the right thing. 
     theorem₄-≐ : ∀ {Γ A w} (M N : Γ ⊢ A)(MN : Γ ⊢ A ∋ M ≐ N)(ρ : w ⊩ᵉ Γ)(uρ : Uni⟨ w ⊩ᵉ Γ ⟩ ρ) 
          → Eq⟨ w ⊩ A ⟩[ ⟦ M ⟧t ρ , ⟦ N ⟧t ρ ]
     -- cλ (congruence for ∶λ x ⇨ M)
@@ -546,7 +546,6 @@ module KSem  (K : Kripke )  where
 
 
 
-    -- remaining steps are trivial. 
     th₄ˢ-≐ : ∀ {Δ Γ w} (γ δ : Δ ⇛ Γ)(γδ : Δ ⊢ Γ ∋ γ ≐ˢ δ)(ρ : w ⊩ᵉ Δ)(uρ : Uni⟨ w ⊩ᵉ Δ ⟩ ρ)  
          → Eq⟨ w ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s ρ , ⟦ δ ⟧s ρ ]
     th₄ˢ-≐  {Ψ} {Γ} .(δ₁ ⊙ γ) .(δ₂ ⊙ γ) (c∘₁ {.Ψ} {Δ} {.Γ} {δ₁} {δ₂} {γ} r) ρ uρ = th₄ˢ-≐ δ₁ δ₂ r _ (Uni-⟦⟧s γ _ uρ )
