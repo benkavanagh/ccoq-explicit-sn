@@ -18,14 +18,14 @@ open import NatProperties
 open import PT
 
 -- first define Kripke models
-record Kripke {a} : Set (Lvl.suc a) where
+record Kripke : Set₁ where
    constructor kripke
    field 
-     W : Set a
-     _≥ʷ_ : Rel W a   -- preorder rel
-     isPO : IsPreorder (_≡_ {a} {W})  _≥ʷ_
+     W : Set 
+     _≥ʷ_ : Rel W Lvl.zero   -- preorder rel
+     isPO : IsPreorder (_≡_ {Lvl.zero} {W})  _≥ʷ_
      uniq≥ : {w₁ w₂ : W}(c₁ c₂ : w₁ ≥ʷ w₂) → c₁ ≡ c₂
-     G : W → Set      -- Gw w₁ = interpretation of ⊙ at w₁
+     G : W → Set     -- Gw w₁ = interpretation of ⊙ at w₁
 
 
 --  naturally one might try to use a datatype.
@@ -37,14 +37,16 @@ record Kripke {a} : Set (Lvl.suc a) where
 --  Instead, as we did with NBE in agda course we define the model by recursion on the type rather than
 --  as an inductive type. Using this method there is no positivity problem.
 
-module KSem (K : Kripke )  where 
+
+module KSem  (K : Kripke )  where 
   open Kripke K
   module P = IsPreorder isPO         -- adds fields of isPO to namespace of module
+
 
   infix 10 _⊩_
 
   -- semantic objects
-  _⊩_ : (w : W)(A : Type) → Set
+  _⊩_ : (w : W)(A : Type) → Set 
   w ⊩ ♭ = {w' : W}(ge : w' ≥ʷ w) → G w'
   w ⊩ (A ⇒ B) = {w' : W} (ge : w' ≥ʷ w) (h : w' ⊩ A) → w' ⊩ B 
 
@@ -70,8 +72,8 @@ module KSem (K : Kripke )  where
     -- Eq: two semantic objects at ground type are equal if they give the same element at all future worlds,
     --   and at function type if under application they map all uniform semantic objects to equal semantic objects               
     --          i.e. they are extensionally equal. 
-    Eq⟨_⊩_⟩[_,_] : ∀ w A (u v : w ⊩ A) → Set
-    Eq⟨ w ⊩ ♭ ⟩[ u , v ] = ∀ {w'} (c : w' ≥ʷ w) → u c ≡ v c
+    Eq⟨_⊩_⟩[_,_] : ∀ w A (u v : w ⊩ A) → Set 
+    Eq⟨ w ⊩ ♭ ⟩[ u , v ] = (∀ {w'} (c : w' ≥ʷ w) → u c ≡ v c)
     Eq⟨ w ⊩ A ⇒ B ⟩[ u₁ , u₂ ] =
       ∀ {w'} (c : w' ≥ʷ w) {v : w' ⊩ A} (uni : Uni⟨ w' ⊩ A ⟩ v) → Eq⟨ w' ⊩ B ⟩[ u₁ c v , u₂ c v ]
 
@@ -80,8 +82,8 @@ module KSem (K : Kripke )  where
     --   (1) maps uniform input objects to uniform output objects.
     --   (2) maps equal, uniform objects to equal output objects.
     --   (3) application and monotonicity commute. 
-    Uni⟨_⊩_⟩_ : ∀ w A (u : w ⊩ A) → Set
-    Uni⟨ w ⊩ ♭ ⟩ u = ⊤
+    Uni⟨_⊩_⟩_ : ∀ w A (u : w ⊩ A) → Set 
+    Uni⟨ w ⊩ ♭ ⟩ u =  ⊤
     Uni⟨ w ⊩ A ⇒ B ⟩ u =
       (∀ {w'} (c : w' ≥ʷ w) {v} (uni : Uni⟨ w' ⊩ A ⟩ v) → Uni⟨ w' ⊩ B ⟩ u c v) ×
       (∀ {w'} (c : w' ≥ʷ w) {v₁ v₂} (uni₁ : Uni⟨ w' ⊩ A ⟩ v₁) (uni₂ : Uni⟨ w' ⊩ A ⟩ v₂)
