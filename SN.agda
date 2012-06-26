@@ -464,6 +464,8 @@ theorem₆ {Γ} {A} M N cv =
          corollary₁ {Γ} {A} {M} {N} nfeq
 
 
+-- similar theorems (theorem₅ˢ theorem₆ˢ can easily be given)
+
 
 --- Normal forms
 
@@ -475,7 +477,6 @@ mutual
   data anf : ∀ {Γ A}(M : Γ ⊢ A) → Set where
     anf1 : ∀ {Γ x A}{occ : [ x ∶ A ]∈ Γ} → anf [ Γ ∋ x ↳ occ ]
     anf2 : ∀ {Γ A B} (M : Γ ⊢ A ⇒ B) (N : Γ ⊢ A)(Ma : anf M)(Ne : enf N) → anf (M ⋆ N)
-
 
 -- Goal: prove enf(nf M)  
 --  define kripke logical predicate KN , such that KN⟦M⟧ and if KN(u), then enf(reify u).
@@ -499,27 +500,46 @@ NVᵉ {Δ} {Γ ∙[ x ∶ A ]⊣ f} (ρ , v) = NVᵉ {Δ} {Γ} ρ × NV {Δ} {A}
 
 -- lemmas from 77
 
--- (v : Δ⊩A) N(v) (c : Γ≥Δ) → N(↑c(v))
+-- (v : Δ ⊩ A) N(v) (c : Γ≥Δ) → N(↑c(v))
+NV↑ : ∀ {Δ Γ A} (v : Γ ⊩ A) (nv : NV {Γ} {A}  v) (c : Δ ≥ Γ)  →  NV {Δ} {A} ↑[ c , A ]⟨ v ⟩
+NV↑ = {!!} 
 
--- (ρ : 􏰰Γ ⊩ᵉ Δ) N(ρ) (occ : [ x ∶ A ]∈ Δ) → N(lookup(ρ, Δ ∋ x ↳ occ)) 
+--   lookup : ∀ {w} Γ (ρ : w ⊩ᵉ Γ) {x A} (occ : [ x ∶ A ]∈ Γ) → w ⊩ A
+NV-lookup : ∀ {Δ Γ A x} (ρ : Δ ⊩ᵉ Γ) (nρ : NVᵉ {Δ} {Γ} ρ) (occ : [ x ∶ A ]∈ Γ) → NV {Δ} {A} (lookup Γ ρ occ)
+NV-lookup = {!!}
 
 -- (ρ : Γ₀ ⊩ᵉ Δ) N(ρ) (c : Γ₁ ≥ Γ₀) → N(↑c(ρ)) 
+NVᵉ↑ : ∀ {Θ Δ Γ} (ρ : Δ ⊩ᵉ Γ) (nρ : NVᵉ {Δ} {Γ} ρ) (c : Θ ≥ Δ) → NVᵉ {Θ} {Γ} ↑ᵉ[ c , Γ ]⟨ ρ ⟩ 
+NVᵉ↑ = {!!} 
 
 -- (ρ : Γ ⊩ᵉ Δ₁) N(ρ) (c : Δ₁ ≥ Δ₀) N(↓c(ρ))
+NVᵉπ : ∀ {Δ Γ₂ Γ₁} (ρ : Δ ⊩ᵉ Γ₂) (nρ : NVᵉ {Δ} {Γ₂} ρ) (c : Γ₂ ≥ Γ₁) → NVᵉ {Δ} {Γ₁} (πᵉ c ρ)
+NVᵉπ = {!!} 
 
--- Lemma 10 (M : Γ ⊢ A) (ρ : Δ ⊩ᵉ Γ) N(ρ) → N(⟦M⟧ρ)
--- (proved mutually with   (γ : Δ ⇛ Γ)(ρ : Θ ⊩ᵉ Δ) N(ρ) → N(⟦γ⟧ρ)
+mutual 
+  lemma₁₀ :  ∀ {Δ Γ A} (M : Γ ⊢ A) (ρ : Δ ⊩ᵉ Γ) (nρ : NVᵉ {Δ}{Γ} ρ) → NV {Δ} {A} (⟦ M ⟧t ρ)
+  lemma₁₀ = {!!} 
+
+  lem₁₀ˢ : ∀ {Θ Δ Γ} (γ : Δ ⇛ Γ) (ρ : Θ ⊩ᵉ Δ) (nρ : NVᵉ {Θ} {Δ} ρ) → NVᵉ {Θ} {Γ} (⟦ γ ⟧s ρ)
+  lem₁₀ˢ = {!!}
+
+mutual 
+  -- proof by induction on type
+  lemma₁₁ : ∀ {Γ A} (v : Γ ⊩ A) (vn : NV {Γ}{A} v) → enf (reify Γ A v)
+  lemma₁₁ = {!!}
+
+  lemma₁₁ˢ :  ∀ {Γ A} (f : Γ ⊢⇑ A)(h : ∀ {Δ} (c : Δ ≥ Γ) → anf (f c)) → NV {Γ} {A} (val Γ A f)
+  lemma₁₁ˢ = {!!}
+
+-- Now easy to show NV id 
+NVᵉid : ∀ {Γ : Context } → NVᵉ {Γ} {Γ} (idᵉ Γ)
+NVᵉid = {!!}
 
 
--- Lemma 11 : (v : Γ ⊩ A) (vn : N v) → enf (reify (v))
---   is shown mutually with
---   Lemma11-sub : (f ∈ Γ ⊢⇑ A)(h : ∀ {Δ} (c : Δ ≥ Γ) → anf (f c)) → N (val Γ A f)
--- proof by induction on type
-
--- Now easy to show N id   
-
--- Theorem 7: (M : Γ ⊢ A) → enf(nf M)
 -- by simple application of lemma 10 and lemma 11
+theorem₇ : ∀ {Γ A} (M : Γ ⊢ A) → enf (nf M)
+theorem₇ = {!!} 
+
 
 -- Todo-Exercise: paper says we can use these results to show that 
 -- (λ x:A.M) ≅ (λ y:A.N) ⇒ M ⟨x ↦ z⟩ ≅ N⟨y ↦ z⟩ for z fresh 
