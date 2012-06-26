@@ -349,6 +349,7 @@ theorem₂ {Γ} {A} M =
 
 
 
+
 -- now easy to prove Theorem 3. 
 -- proof: know by corollary 1 that nf(M) ≡ nf(N) so ≅ by refl. 
 --  by theorem₂ know M ≅ nf(M),  N ≅ nf(N), result follows trivially by sym, trans.
@@ -440,6 +441,11 @@ theorem₃ˢ {Δ} {Γ} γ δ eq =
     m3 :  Δ ⊢ Γ ∋ δ ≅ˢ nfˢ δ 
     m3 = theorem₂ˢ δ
   in ≡*-trans m2 (≡*-trans m1 (≡*-sym m3))
+
+
+
+
+
 
 
 
