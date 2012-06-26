@@ -68,9 +68,9 @@ data [_∶_]∈_ (x : Name) (A : Type) : Context  → Set  where
   here! : ∀ {Γ} {f : T(x # Γ)} → [ x ∶ A ]∈ (Γ ∙[ x ∶ A ]⊣ f)
   there : ∀ {y B Γ} (f : T(y # Γ)) (occ : [ x ∶ A ]∈ Γ) → [ x ∶ A ]∈ Γ ∙[ y ∶ B ]⊣ f
 
-data _≥_ (Γ : Context) : Context → Set  where
-  stop :  Γ ≥ ε
-  step : ∀ {Δ x A} (c : Γ ≥ Δ) (occ : [ x ∶ A ]∈ Γ) (f : T(x # Δ)) → Γ ≥ Δ ∙[ x ∶ A ]⊣ f  
+data _≥_ (Δ : Context) : Context → Set  where
+  stop :  Δ ≥ ε
+  step : ∀ {Γ x A} (c : Δ ≥ Γ) (occ : [ x ∶ A ]∈ Δ) (f : T(x # Γ)) → Δ ≥ Γ ∙[ x ∶ A ]⊣ f  
 
 
 

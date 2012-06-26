@@ -132,16 +132,20 @@ idᵉ Γ ∙[ x ∶ A ]⊣ f =
   ↑ᵉ[ lemma₅ , Γ ]⟨ idᵉ Γ ⟩ ,
   val _ A (λ {Δ} inc → [ Δ ∋ x ↳ lemma₂ inc here! ])
 
-idᵉ↑ : ∀ {Γ Δ} (c : Δ ≥ Γ) → Δ ⊩ᵉ Γ
-idᵉ↑ {Γ} {Δ} c = ↑ᵉ[ c , Γ ]⟨ idᵉ Γ ⟩
+idᵉ↑ : ∀ {Δ Γ} (c : Δ ≥ Γ) → Δ ⊩ᵉ Γ
+idᵉ↑ {Δ} {Γ} c = ↑ᵉ[ c , Γ ]⟨ idᵉ Γ ⟩
+
+-- prove uniformity of idᵉ  (required for theorem₂)
+Uni-idᵉ : ∀ {Γ} → Uni⟨ Γ ⊩ᵉ Γ ⟩ (idᵉ Γ)
+Uni-idᵉ {ε} = tt
+Uni-idᵉ {Γ ∙[ x ∶ A ]⊣ f} = (Uniᵉ↑ Γ lemma₅ (Uni-idᵉ {Γ}) , valUni A )
 
 -- normal form = reify ∘ eval
 nf : ∀ {Γ A} (M : Γ ⊢ A) → Γ ⊢ A
 nf {Γ} {A} M = reify Γ A (⟦ M ⟧t (idᵉ Γ))
 
 corollary₁ : ∀ {Γ A} {M N : Γ ⊢ A} (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]) → nf M ≡ nf N
-corollary₁ eq = theorem₁ _ eq
-
+corollary₁ {Γ} {A} eq = theorem₁ {Γ} A eq -- theorem₁ _ eq
 
 
 -- *******  Completeness for equational theory.  i.e. proper completeness  *************
@@ -167,8 +171,9 @@ infix 10 [_,_]_∿_  [_,_]_∿ᵉ_
 -- current definition seems a bit messy. Is there a reason? Why not use V2?
 data [_,_]_∿ᵉ_ Δ : ∀ Γ (γ : Δ ⇛ Γ) (ρ : Δ ⊩ᵉ Γ) → Set where
   ε : ∀ {γ : Δ ⇛ ε} → [ Δ , ε ] γ ∿ᵉ tt
-  ∙ : ∀ {Γ x A f} {γ : Δ ⇛ Γ ∙[ x ∶ A ]⊣ f} {ρ : Δ ⊩ᵉ Γ} (πγρ : [ Δ ,  Γ ] π lemma₅ ⊙ γ ∿ᵉ ρ)
-      {u : Δ ⊩ A} (xu : [ Δ , A ] [ _ ∋ x ↳ here! ] ⟨ γ ⟩ ∿ u) →
+  ∙ : ∀ {Γ x A f} {γ : Δ ⇛ Γ ∙[ x ∶ A ]⊣ f}  
+                 {ρ : Δ ⊩ᵉ Γ}  (πγρ : [ Δ ,  Γ ] π lemma₅ ⊙ γ ∿ᵉ ρ)  
+                 {u : Δ ⊩ A}   (xu : [ Δ , A ] [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ ⟩ ∿ u) →
       [ Δ , Γ ∙[ x ∶ A ]⊣ f ] γ ∿ᵉ (ρ , u)
 
 -- why not the following? todo test if all works this way. (V2)
@@ -240,23 +245,23 @@ mutual
    (∙ (∿≡ᵉ-cast _ (≡*-sym (lstep ∶π∶ext refl)) (∿π _ c cv)) (∿≡-cast A (rstep :v₁ refl) cvNv)))
   lemma₈ {A} (M ⋆ N) cv =
     ∿≡-cast A (lstep (ca₁ :sid) (rstep :sapp refl)) (lemma₈ M cv P.refl (lemma₈ N cv))
-  lemma₈ {A} (M ⟨ γ ⟩) cv = ∿≡-cast A (rstep :s⊙ refl) (lemma₈ M (∿subst _ γ cv))
+  lemma₈ {A} (M ⟨ γ ⟩) cv = ∿≡-cast A (rstep :s⊙ refl) (lemma₈ M (lemma₈ˢ _ γ cv))
 
   -- lemma₈ but for substitutions, not terms
-  -- i.e. if p, P related by ∿ᵉ  then  (γ ⊙ ρ)  ∿ᵉ  (⟦ γ ⟧s P)
-  ∿subst : ∀ Γ {Δ} (γ : Δ ⇛ Γ) {Ε} {δ : Ε ⇛ Δ} {ρ : Ε ⊩ᵉ Δ} (cv : [ Ε , Δ ] δ ∿ᵉ ρ) → [ Ε , Γ ] γ ⊙ δ ∿ᵉ ⟦ γ ⟧s ρ
-  ∿subst Γ (π c) cv = ∿πᵉ _ c cv
-  ∿subst Γ (γ ⊙ δ) cv = ∿≡ᵉ-cast Γ (rstep ⊙-assoc refl) (∿subst Γ γ (∿subst _ δ cv))
-  ∿subst (Γ ∙[ x ∶ A ]⊣ f) (γ [ .x ↦ M ]) cv = 
-   ∙ (∿≡ᵉ-cast Γ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶π∶ext) refl))) (∿subst Γ γ cv))
+  -- i.e. if δ, ρ related by ∿ᵉ  then  (γ ⊙ δ)  ∿ᵉ  (⟦ γ ⟧s ρ)
+  lemma₈ˢ : ∀ Γ {Δ} (γ : Δ ⇛ Γ) {Ε} {δ : Ε ⇛ Δ} {ρ : Ε ⊩ᵉ Δ} (cv : [ Ε , Δ ] δ ∿ᵉ ρ) → [ Ε , Γ ] γ ⊙ δ ∿ᵉ ⟦ γ ⟧s ρ
+  lemma₈ˢ Γ (π c) cv = ∿πᵉ _ c cv
+  lemma₈ˢ Γ (γ ⊙ δ) cv = ∿≡ᵉ-cast Γ (rstep ⊙-assoc refl) (lemma₈ˢ Γ γ (lemma₈ˢ _ δ cv))
+  lemma₈ˢ (Γ ∙[ x ∶ A ]⊣ f) (γ [ .x ↦ M ]) cv = 
+   ∙ (∿≡ᵉ-cast Γ (≡*-sym (rstep ⊙-assoc (lstep (c∘₁ ∶π∶ext) refl))) (lemma₈ˢ Γ γ cv))
       (∿≡-cast A (≡*-sym (lstep (cs₂ ∶ext∶⊙) (lstep :v₁ refl))) (lemma₈ M cv))
 
 
 mutual 
 
-  -- finish this.
   lemma₉ : ∀ {A Γ} M u (cv : [ Γ , A ] M ∿ u) → (Γ ⊢ A ∋ M ≅ reify Γ A u)
-  lemma₉ {♭} M u cv = {!!}    --  subst .... uniq≥ ([ x  ] π c = x ∘ cv (c = id))
+  -- base case = :sid and cv
+  lemma₉ {♭} M u cv = ≡*-trans (rstep (:sid {_} {_} {P.refl}) refl) (cv _)      
   -- Goal. M ≅ λx. reify u (val x) 
  --  Given 
   -- cv : [ Δ , A ] N ∿ v → [ Δ , B ] (M ⟨ π c ⟩) ⋆ N ∿ u c v
@@ -270,27 +275,93 @@ mutual
   --          gives us  _ x ↳ here! ∿ val Γ A f
   --  hence cv, with N=_ x ↳ here!, v = val Γ A f,  yields M ⟨π c⟩ ⋆  _ x ↳ here! ∿  u c (val x)     
   --       by IH we then know    M ⟨π c⟩ ⋆  _ x ↳ here! ≅  reify (u c (val x))
-  --     by trans we are done.
-  lemma₉ {A ⇒ B} M u cv = {!!}    -- 
+  --     by cong-λ, trans we are done.
+  lemma₉ {A ⇒ B} {Γ} M u cv = 
+        let 
+           f : (Γ ∙[ fresh Γ ∶ A ]⊣ isfresh Γ) ⊢⇑ A
+           f = λ {Δ} (c : Δ ≥ _) → [ _ ∋ fresh Γ ↳ lemma₂ c here! ]
+           v : (Γ ∙[ fresh Γ ∶ A ]⊣ isfresh Γ) ⊩ A
+           v = val (Γ ∙[ fresh Γ ∶ A ]⊣ isfresh Γ) A f
+        in 
+           lstep (:η {Γ}{A}{B}{fresh Γ}{isfresh Γ} M {lemma₅}) 
+                 (≡*-cong cλ (lemma₉ ((M ⟨ π lemma₅ ⟩) ⋆ [ _ ∋ fresh Γ ↳ here! ]) 
+                                                  (u lemma₅ v)
+                                                  (cv lemma₅ {[ _ ∋ fresh Γ ↳ here! ]}
+                                                                    {v}
+                                                                    (∿-val {A} 
+                                                                              {Γ ∙[ fresh Γ ∶ A ]⊣ isfresh Γ} 
+                                                                               [ _ ∋ fresh Γ ↳ here! ]
+                                                                               f
+                                                                              (λ {Δ} c → lstep :v₂ refl)))))  
+
+  -- so need some v s.t  [ (Γ, fresh Γ : A) , A ] [ _ ∋ fresh Γ ↳ here! ])  ∿ v
+  -- using val need 
+  --  ∀ {Δ}(c : Δ ≥ Γ, fresh Γ : A) → (_ ∋ fresh Γ ↳ here!) ⟨π c⟩ ≅  Δ ∋ fresh Γ ↳ lemma₂ c here!
+  -- which is just :v₂
 
 
   ∿-val : ∀ {A Γ} M (f : Γ ⊢⇑ A)(h : ∀ {Δ} (c : Δ ≥ Γ) → Δ ⊢ A ∋ M ⟨ π c ⟩ ≅ f c) → [ Γ , A ] M ∿ val Γ A f
-  ∿-val M f Mf≅ = {!!}
+  ∿-val {♭} M f Mf≅ = Mf≅
+  --      recall val Γ (A ⇒ B) f = 
+  --                        λ {Δ} (c : Δ ≥ Γ) (a : Δ ⊩ A) →  
+  --                              val Δ B (λ {Ε} (c' : Ε ≥ Δ) → f (P.trans c' c) ⋆ (reify Ε A ↑[ c' , A ]⟨ a ⟩))
+  -- require M ⟨π c⟩ ⋆ N ∿ (val Γ (A ⇒ B) f) c v 
+  --                               ∿ val Δ B (f' ≡ λ {Ε} (c' : Ε ≥ Δ) → f (P.trans c' c) ⋆ (reify Ε A ↑[ c' , A ]⟨ v ⟩))
+  -- using IH of ∿-val with f'
+  -- we need to provide h
+  --  [ Δ' , B ] (((M ⟨ π c ⟩) ⋆ N) ⟨ π c'' ⟩) ≅ (f (P.trans c'' c) ⋆ reify Δ' A ↑[ c'' , A ]⟨ v ⟩)
+  --  using N∿v, Mf≅ combine with ∿↑, :sapp, :s⊙, and recursive call to lemma₉ gives result.
+  ∿-val {A ⇒ B} {Γ} M f Mf≅ = 
+          λ {Δ} c {N} {v} N∿v → 
+                ∿-val {B} {Δ} 
+                          (M ⟨ π c ⟩ ⋆ N) 
+                          (λ {Ε} (c' : Ε ≥ Δ) → f (P.trans c' c) ⋆ (reify Ε A ↑[ c' , A ]⟨ v ⟩)) 
+                          (λ {Δ'} (c'' : Δ' ≥ Δ) → 
+                               lstep :sapp (≡*-trans (≡*-cong ca₁ (lstep :s⊙ (lstep (cs₂ ∶⊙∶π) (Mf≅ (P.trans c'' c)) )))
+                                                                (≡*-cong ca₂ (lemma₉ (N ⟨ π c'' ⟩) ↑[  c'' , A ]⟨ v ⟩ (∿↑ A c'' N∿v)))  ))
 
 -- this is important.
-π∿id↑ᵉ : ∀ {Γ Δ} (c : Δ ≥ Γ) → [ Δ , Γ ] π c ∿ᵉ idᵉ↑ c
-π∿id↑ᵉ c = {!!}
+π∿id↑ᵉ : ∀ {Δ Γ : Context} (c : Δ ≥ Γ) → [ Δ , Γ ] π c ∿ᵉ idᵉ↑ c
+π∿id↑ᵉ {Δ} {ε} stop = ε
+π∿id↑ᵉ {Δ} {Γ ∙[ x ∶ A ]⊣ f} c = 
+    ∙ (∿π  Γ c (π∿id↑ᵉ lemma₅) )
+       (∿↑ A c (∿-val {A} 
+                               [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] 
+                               (λ {Δ} inc → [ Δ ∋ x ↳ lemma₂ inc here! ])
+                               ((λ {Δ} c → lstep :v₂ refl))))
 
+-- recall 
+--  lemma₈ : ∀ {A Γ Δ} M {γ : Δ ⇛ Γ} {ρ : Δ ⊩ᵉ Γ} (cv : [ Δ , Γ ] γ ∿ᵉ ρ) → [ Δ , A ] M ⟨ γ ⟩ ∿ ⟦ M ⟧t ρ
+--  lemma₉ : ∀ {A Γ} M u (cv : [ Γ , A ] M ∿ u) → (Γ ⊢ A ∋ M ≅ reify Γ A u)
 -- by π∿id↑ᵉ, lemma₈ , lemma₉ we get M⟨π c⟩≅nf(M) where c:Γ≥Γ,  since M≅M⟨π c⟩ by trans get result.
 theorem₂ : ∀ {Γ A} (M : Γ ⊢ A) → Γ ⊢ A ∋ M ≅ nf M
-theorem₂ M = {!!}
+theorem₂ {Γ} {A} M = 
+     let 
+          m₁ : [ Γ , A ] M ⟨ π P.refl ⟩ ∿ ⟦ M ⟧t (idᵉ↑ {Γ} P.refl)
+          m₁ = (lemma₈ M (π∿id↑ᵉ P.refl))
+          m₂ :  Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ↑ {Γ} P.refl) , ⟦ M ⟧t (idᵉ Γ) ]  
+          m₂ = Eq-⟦⟧t-compat M (Uniᵉ↑ Γ P.refl (Uni-idᵉ {Γ})) (Uni-idᵉ {Γ}) (Eqᵉ↑-id Γ P.refl )
+          m₃ :  Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ reify Γ A (⟦ M ⟧t (idᵉ↑ {Γ} P.refl))
+          m₃ = lemma₉ (M ⟨ π P.refl ⟩) (⟦ M ⟧t _) m₁ 
+          m₄ :  Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ reify Γ A (⟦ M ⟧t (idᵉ Γ))
+          m₄ =  subst (λ M' → Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ M') (theorem₁ A m₂) m₃
+     in rstep :sid m₄
+
 
 
 -- now easy to prove Theorem 3. 
 -- proof: know by corollary 1 that nf(M) ≡ nf(N) so ≅ by refl. 
 --  by theorem₂ know M ≅ nf(M),  N ≅ nf(N), result follows trivially by sym, trans.
 theorem₃ : ∀ {Γ A} M N (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]) → Γ ⊢ A ∋ M ≅ N
-theorem₃ M N eq = {!!}
+theorem₃ {Γ} {A} M N eq = 
+  let 
+    m1 :  Γ ⊢ A ∋ nf M ≅ nf N 
+    m1 = subst (λ x → Γ ⊢ A ∋ nf M ≅ x) (corollary₁ {Γ} {A} {M} {N} eq) refl
+    m2 :  Γ ⊢ A ∋ M ≅ nf M 
+    m2 = theorem₂ M
+    m3 :  Γ ⊢ A ∋ N ≅ nf N 
+    m3 = theorem₂ N
+  in ≡*-trans m2 (≡*-trans m1 (≡*-sym m3))
 
 
 
@@ -299,24 +370,100 @@ reifyˢ : ∀ Δ Γ (ρ : Δ ⊩ᵉ Γ) → (Δ ⇛ Γ)
 reifyˢ Δ ε tt = π stop
 reifyˢ Δ (Γ ∙[ x ∶ A ]⊣ f) (ρ , v) = (reifyˢ  Δ Γ ρ)[ x ↦ reify Δ A v ]
 
+  -- Equal semantic values reify to elements in the same equivalence class of terms.  (simple induction on type)
+theorem₁ˢ : ∀ {Δ} Γ {ρ₁ ρ₂} (eq : Eq⟨ Δ ⊩ᵉ Γ ⟩[ ρ₁ , ρ₂ ]) → reifyˢ Δ Γ ρ₁ ≡ reifyˢ Δ Γ ρ₂
+theorem₁ˢ ε tt = refl
+theorem₁ˢ (Γ ∙[ x ∶ A ]⊣ f) {ρ₁ , v₁} {ρ₂ , v₂} (eqρ , eqv) = 
+       cong₂ (λ ρ M → ρ [ x ↦ M ]) (theorem₁ˢ Γ eqρ) (theorem₁ A eqv)
+
+
 nfˢ : ∀ {Γ Δ} (M : Δ ⇛ Γ) → Δ ⇛ Γ
 nfˢ {Γ} {Δ} γ = reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ Δ))
 
+-- corresponding corrolary.
+corollary₁ˢ : ∀ {Δ Γ : Context} {γ δ : Δ ⇛ Γ} (eq : Eq⟨ Δ ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s (idᵉ Δ) , ⟦ δ ⟧s (idᵉ Δ) ]) → nfˢ γ ≡ nfˢ δ
+corollary₁ˢ {Δ} {Γ} eq = theorem₁ˢ {Δ} Γ eq -- theorem₁ _ eq
+
+
 -- completeness result follows from similar work as for proof trees. 
 -- i.e. prove γ ≅ˢ nf γ   
+
+-- Recall
+--  lemma₈ˢ : ∀ Γ {Δ} (γ : Δ ⇛ Γ) {Ε} {δ : Ε ⇛ Δ} {ρ : Ε ⊩ᵉ Δ} (cv : [ Ε , Δ ] δ ∿ᵉ ρ) → [ Ε , Γ ] γ ⊙ δ ∿ᵉ ⟦ γ ⟧s ρ
+
+-- will use :πε for ε and :ηε to step down a context in Γ ∙[ x : A ]⊣ f case. 
+lemma₉ˢ : ∀ {Γ Δ} γ ρ (cvᵉ : [ Δ , Γ ] γ ∿ᵉ ρ) → (Δ ⊢ Γ ∋ γ ≅ˢ reifyˢ Δ Γ ρ)
+lemma₉ˢ {ε} {Γ} γ ρ cvᵉ = lstep (:πε {Γ} {γ} {stop}) refl 
+-- 
+-- πγρ : [ .Δ , Γ ] (π lemma₅) ⊙ γ ∿ᵉ ρ
+-- xv  : [ .Δ , A ] [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ ⟩ ∿ v 
+-- recall :  lemma₉ : ∀ {A Γ} M u (cv : [ Γ , A ] M ∿ u) → (Γ ⊢ A ∋ M ≅ reify Γ A u)
+-- using IHs reduces to 
+-- (π lemma₅ ⊙ γ) [ x ↦ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ ⟩ ] ≅  (reifyˢ Δ Γ ρ) [ x ↦ reify Δ A v ]
+-- solve easily by cong.
+lemma₉ˢ {Γ ∙[ x ∶ A ]⊣ f} {Δ}  γ (ρ , v) (∙ πγρ xv) = 
+   let 
+     IH₁ : Δ ⊢ Γ ∋  (π lemma₅) ⊙ γ ≅ˢ reifyˢ Δ Γ ρ
+     IH₁ = lemma₉ˢ {Γ} ((π lemma₅) ⊙ γ ) ρ πγρ
+     IH₂ : Δ ⊢ A ∋ [ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ ⟩ ≅ reify Δ A v
+     IH₂ = lemma₉ {A} ([ Γ ∙[ x ∶ A ]⊣ f ∋ x ↳ here! ] ⟨ γ ⟩) v xv
+   in 
+   lstep (:ηε x here! γ lemma₅) 
+           (≡*-trans 
+                 (≡*-cong c≔₁ IH₁ )
+                 (≡*-cong c≔₂ IH₂) )
+     
+
+
+theorem₂ˢ : ∀ {Δ Γ} (γ : Δ ⇛ Γ) → Δ ⊢ Γ ∋ γ ≅ˢ nfˢ γ
+theorem₂ˢ {Δ} {Γ} γ = 
+    let 
+      m₁ : [ Δ , Γ ] γ ⊙ (π P.refl) ∿ᵉ ⟦ γ ⟧s (idᵉ↑ {Δ} P.refl)
+      m₁ = lemma₈ˢ Γ γ (π∿id↑ᵉ P.refl)
+      m₂ :  Δ ⊢ Γ ∋ γ ⊙ (π P.refl ) ≅ˢ reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ↑ {Δ} P.refl))
+      m₂  = lemma₉ˢ (γ ⊙ (π P.refl)) (⟦ γ ⟧s _) m₁ 
+      m₃ :  Eq⟨ Δ ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s (idᵉ↑ {Δ} P.refl) , ⟦ γ ⟧s (idᵉ Δ) ]  
+      m₃ = Eq-⟦⟧s-compat γ (Uniᵉ↑ Δ P.refl (Uni-idᵉ {Δ})) (Uni-idᵉ {Δ}) (Eqᵉ↑-id Δ P.refl )
+      m₄ :  Δ ⊢ Γ ∋  (γ ⊙ (π P.refl)) ≅ˢ reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ Δ))
+      m₄ =  subst (λ γ' → Δ ⊢ Γ ∋ γ ⊙ (π P.refl) ≅ˢ γ') (theorem₁ˢ Γ m₃) m₂
+    in 
+    rstep :πid m₄ 
+
+
+theorem₃ˢ : ∀ {Δ Γ} (γ δ : Δ ⇛ Γ) (eq : Eq⟨ Δ ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s (idᵉ Δ) , ⟦ δ ⟧s (idᵉ Δ) ]) → Δ ⊢ Γ ∋ γ ≅ˢ δ
+theorem₃ˢ {Δ} {Γ} γ δ eq = 
+  let 
+    m1 :  Δ ⊢ Γ ∋ nfˢ γ ≅ˢ nfˢ δ
+    m1 = subst (λ γ' → Δ ⊢ Γ ∋ nfˢ γ ≅ˢ γ') (corollary₁ˢ {Δ} {Γ} {γ} {δ} eq) refl
+    m2 :  Δ ⊢ Γ ∋ γ ≅ˢ nfˢ γ 
+    m2 = theorem₂ˢ γ
+    m3 :  Δ ⊢ Γ ∋ δ ≅ˢ nfˢ δ 
+    m3 = theorem₂ˢ δ
+  in ≡*-trans m2 (≡*-trans m1 (≡*-sym m3))
+
 
 
 -- Theorem5 ∈ (nf(M)≡nf(N)) → M ≅ N   (Decision algorithm is correct)
 -- by Theorem2 we have M ≅ nf(M) and N ≅ nf(N) and, by hypothesis, nf(M)≡nf(N) and ≅-refl,
 -- we get by transitivity of ≅, that M ≅ N.
 theorem₅ : ∀ {Γ A}(M N : Γ ⊢ A)(idnf : nf M ≡ nf N) → Γ ⊢ A ∋ M ≅ N
-theorem₅ M N idnf = {!!}
+theorem₅ {Γ} {A} M N idnf = ≡*-trans (theorem₂ M) 
+                                                           (≡*-trans (subst (λ x → Γ ⊢ A ∋ nf M ≅ x) idnf refl) 
+                                                                          (≡*-sym (theorem₂ N)))
 
 -- Theorem6 ∈ (M ≅ N) → nf(M) ≡ nf(N)    (Decision algorithm is complete)
 -- since by Theorem4 and the hypothesis, M≅N we get Eq([M]id,[N]id) and by corollary1 
 -- we get nf M ≡ nf N.
+-- recall corollary₁ : ∀ {Γ A} {M N : Γ ⊢ A} (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]) → nf M ≡ nf N
 theorem₆ : ∀ {Γ A} (M N : Γ ⊢ A)(cv : Γ ⊢ A ∋ M ≅ N) → nf M ≡ nf N
-theorem₆ M N cv = {!!}
+theorem₆ {Γ} {A} M N cv = 
+         let  
+           nfeq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]
+           nfeq = theorem₄ M N cv (idᵉ Γ) (Uni-idᵉ {Γ})
+         in 
+         corollary₁ {Γ} {A} {M} {N} nfeq
+
+
 
 --- Normal forms
 
