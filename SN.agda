@@ -116,11 +116,14 @@ mutual
   valUni : ∀ {Γ} A {f : Γ ⊢⇑ A} → Uni⟨ Γ ⊩ A ⟩ val Γ A f
   valUni ♭ = tt
   valUni (A ⇒ B) {f} =
-    (λ {Δ} inc {a} uni → valUni B) ,
-    (λ {Δ} inc {v₁} {v₂} uni₁ uni₂ eq →
-      valEq B (λ {Ε} pr → cong (_⋆_ (f (P.trans pr inc))) (theorem₁ A (Eq-cong-↑ A pr eq)))) ,
-    (λ {Δ} {Ε} c₁ c₂ c₃ {v} uni → Eq-trans B (val↑ B c₂)
-      (valEq B (λ {Φ} pr → cong₂ (λ inc t → f inc ⋆ t) (lemma₇ _ _)
+    -- other properties preserved under application
+    (λ {Δ} c {v} uv → valUni {Δ} B {λ {Ε}(c' : Ε ≥ Δ) → f (P.trans c' c) ⋆ (reify Ε A ↑[ c' , A ]⟨ v ⟩)}) ,
+    -- application of equal (and uniform/good) values produces equals
+    (λ {Δ} c {v₁} {v₂} uv₁ uv₂ eq →
+      valEq B (λ {Ε} c' → cong (_⋆_ (f (P.trans c' c))) (theorem₁ A (Eq-cong-↑ A c' eq)))) ,
+    -- coherence (ok to weaken via c₂ either before or after application)
+    (λ {Δ} {Ε} c₁ c₂ c₃ {v} uv → Eq-trans B (val↑ B c₂)
+      (valEq B (λ {Φ} pr → cong₂ (λ c t → f c ⋆ t) (lemma₇ _ _)
                (theorem₁ A (Eq-sym A (Eq↑↑ A v _ _ _))))))
 
 infix 10 idᵉ_
@@ -337,15 +340,15 @@ mutual
 theorem₂ : ∀ {Γ A} (M : Γ ⊢ A) → Γ ⊢ A ∋ M ≅ nf M
 theorem₂ {Γ} {A} M = 
      let 
-          m₁ : [ Γ , A ] M ⟨ π P.refl ⟩ ∿ ⟦ M ⟧t (idᵉ↑ {Γ} P.refl)
-          m₁ = (lemma₈ M (π∿id↑ᵉ P.refl))
-          m₂ :  Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ↑ {Γ} P.refl) , ⟦ M ⟧t (idᵉ Γ) ]  
-          m₂ = Eq-⟦⟧t-compat M (Uniᵉ↑ Γ P.refl (Uni-idᵉ {Γ})) (Uni-idᵉ {Γ}) (Eqᵉ↑-id Γ P.refl )
-          m₃ :  Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ reify Γ A (⟦ M ⟧t (idᵉ↑ {Γ} P.refl))
-          m₃ = lemma₉ (M ⟨ π P.refl ⟩) (⟦ M ⟧t _) m₁ 
-          m₄ :  Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ reify Γ A (⟦ M ⟧t (idᵉ Γ))
-          m₄ =  subst (λ M' → Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ M') (theorem₁ A m₂) m₃
-     in rstep :sid m₄
+          pr₁ : [ Γ , A ] M ⟨ π P.refl ⟩ ∿ ⟦ M ⟧t (idᵉ↑ {Γ} P.refl)
+          pr₁ = (lemma₈ M (π∿id↑ᵉ P.refl))
+          pr₂ :  Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ reify Γ A (⟦ M ⟧t (idᵉ↑ {Γ} P.refl))
+          pr₂ = lemma₉ (M ⟨ π P.refl ⟩) (⟦ M ⟧t _) pr₁ 
+          pr₃ :  Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ↑ {Γ} P.refl) , ⟦ M ⟧t (idᵉ Γ) ]  
+          pr₃ = Eq-⟦⟧t-compat M (Uniᵉ↑ Γ P.refl (Uni-idᵉ {Γ})) (Uni-idᵉ {Γ}) (Eqᵉ↑-id Γ P.refl )
+          pr₄ :  Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ reify Γ A (⟦ M ⟧t (idᵉ Γ))
+          pr₄ =  subst (λ M' → Γ ⊢ A ∋ M ⟨ π P.refl ⟩ ≅ M') (theorem₁ A pr₃) pr₂
+     in rstep :sid pr₄
 
 
 
@@ -356,13 +359,13 @@ theorem₂ {Γ} {A} M =
 theorem₃ : ∀ {Γ A} M N (eq : Eq⟨ Γ ⊩ A ⟩[ ⟦ M ⟧t (idᵉ Γ) , ⟦ N ⟧t (idᵉ Γ) ]) → Γ ⊢ A ∋ M ≅ N
 theorem₃ {Γ} {A} M N eq = 
   let 
-    m1 :  Γ ⊢ A ∋ nf M ≅ nf N 
-    m1 = subst (λ x → Γ ⊢ A ∋ nf M ≅ x) (corollary₁ {Γ} {A} {M} {N} eq) refl
-    m2 :  Γ ⊢ A ∋ M ≅ nf M 
-    m2 = theorem₂ M
-    m3 :  Γ ⊢ A ∋ N ≅ nf N 
-    m3 = theorem₂ N
-  in ≡*-trans m2 (≡*-trans m1 (≡*-sym m3))
+    pr₁ :  Γ ⊢ A ∋ nf M ≅ nf N 
+    pr₁ = subst (λ x → Γ ⊢ A ∋ nf M ≅ x) (corollary₁ {Γ} {A} {M} {N} eq) refl
+    pr₂ :  Γ ⊢ A ∋ M ≅ nf M 
+    pr₂ = theorem₂ M
+    pr₃ :  Γ ⊢ A ∋ N ≅ nf N 
+    pr₃ = theorem₂ N
+  in ≡*-trans pr₂ (≡*-trans pr₁ (≡*-sym pr₃))
 
 
 
@@ -419,28 +422,28 @@ lemma₉ˢ {Γ ∙[ x ∶ A ]⊣ f} {Δ}  γ (ρ , v) (∙ πγρ xv) =
 theorem₂ˢ : ∀ {Δ Γ} (γ : Δ ⇛ Γ) → Δ ⊢ Γ ∋ γ ≅ˢ nfˢ γ
 theorem₂ˢ {Δ} {Γ} γ = 
     let 
-      m₁ : [ Δ , Γ ] γ ⊙ (π P.refl) ∿ᵉ ⟦ γ ⟧s (idᵉ↑ {Δ} P.refl)
-      m₁ = lemma₈ˢ Γ γ (π∿id↑ᵉ P.refl)
-      m₂ :  Δ ⊢ Γ ∋ γ ⊙ (π P.refl ) ≅ˢ reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ↑ {Δ} P.refl))
-      m₂  = lemma₉ˢ (γ ⊙ (π P.refl)) (⟦ γ ⟧s _) m₁ 
-      m₃ :  Eq⟨ Δ ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s (idᵉ↑ {Δ} P.refl) , ⟦ γ ⟧s (idᵉ Δ) ]  
-      m₃ = Eq-⟦⟧s-compat γ (Uniᵉ↑ Δ P.refl (Uni-idᵉ {Δ})) (Uni-idᵉ {Δ}) (Eqᵉ↑-id Δ P.refl )
-      m₄ :  Δ ⊢ Γ ∋  (γ ⊙ (π P.refl)) ≅ˢ reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ Δ))
-      m₄ =  subst (λ γ' → Δ ⊢ Γ ∋ γ ⊙ (π P.refl) ≅ˢ γ') (theorem₁ˢ Γ m₃) m₂
+      pr₁ : [ Δ , Γ ] γ ⊙ (π P.refl) ∿ᵉ ⟦ γ ⟧s (idᵉ↑ {Δ} P.refl)
+      pr₁ = lemma₈ˢ Γ γ (π∿id↑ᵉ P.refl)
+      pr₂ :  Δ ⊢ Γ ∋ γ ⊙ (π P.refl ) ≅ˢ reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ↑ {Δ} P.refl))
+      pr₂  = lemma₉ˢ (γ ⊙ (π P.refl)) (⟦ γ ⟧s _) pr₁ 
+      pr₃ :  Eq⟨ Δ ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s (idᵉ↑ {Δ} P.refl) , ⟦ γ ⟧s (idᵉ Δ) ]  
+      pr₃ = Eq-⟦⟧s-compat γ (Uniᵉ↑ Δ P.refl (Uni-idᵉ {Δ})) (Uni-idᵉ {Δ}) (Eqᵉ↑-id Δ P.refl )
+      pr₄ :  Δ ⊢ Γ ∋  (γ ⊙ (π P.refl)) ≅ˢ reifyˢ Δ Γ (⟦ γ ⟧s (idᵉ Δ))
+      pr₄ =  subst (λ γ' → Δ ⊢ Γ ∋ γ ⊙ (π P.refl) ≅ˢ γ') (theorem₁ˢ Γ pr₃) pr₂
     in 
-    rstep :πid m₄ 
+    rstep :πid pr₄ 
 
 
 theorem₃ˢ : ∀ {Δ Γ} (γ δ : Δ ⇛ Γ) (eq : Eq⟨ Δ ⊩ᵉ Γ ⟩[ ⟦ γ ⟧s (idᵉ Δ) , ⟦ δ ⟧s (idᵉ Δ) ]) → Δ ⊢ Γ ∋ γ ≅ˢ δ
 theorem₃ˢ {Δ} {Γ} γ δ eq = 
   let 
-    m1 :  Δ ⊢ Γ ∋ nfˢ γ ≅ˢ nfˢ δ
-    m1 = subst (λ γ' → Δ ⊢ Γ ∋ nfˢ γ ≅ˢ γ') (corollary₁ˢ {Δ} {Γ} {γ} {δ} eq) refl
-    m2 :  Δ ⊢ Γ ∋ γ ≅ˢ nfˢ γ 
-    m2 = theorem₂ˢ γ
-    m3 :  Δ ⊢ Γ ∋ δ ≅ˢ nfˢ δ 
-    m3 = theorem₂ˢ δ
-  in ≡*-trans m2 (≡*-trans m1 (≡*-sym m3))
+    pr₁ :  Δ ⊢ Γ ∋ nfˢ γ ≅ˢ nfˢ δ
+    pr₁ = subst (λ γ' → Δ ⊢ Γ ∋ nfˢ γ ≅ˢ γ') (corollary₁ˢ {Δ} {Γ} {γ} {δ} eq) refl
+    pr₂ :  Δ ⊢ Γ ∋ γ ≅ˢ nfˢ γ 
+    pr₂ = theorem₂ˢ γ
+    pr₃ :  Δ ⊢ Γ ∋ δ ≅ˢ nfˢ δ 
+    pr₃ = theorem₂ˢ δ
+  in ≡*-trans pr₂ (≡*-trans pr₁ (≡*-sym pr₃))
 
 
 
