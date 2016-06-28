@@ -147,8 +147,8 @@ lemma₇ (step g₁ occ₁ f) (step g₂ occ₂ .f ) = cong₂ (λ g occ → ste
     trans = lemma₄
   }
 
-infix 10 _⊢_ _⇛_ 
-infix 11  π_ _⊙_ _[_↦_]
+infix 10 _⊢_ _⇛_
+infix 11 _⋆_ _⊙_
 
 -- M,N ::=  [Γ ∋ x ↳ loc] |  ∶λ x ⇨ M  |  M ⋆ N  |  M ⟨ σ ⟩
 mutual 
